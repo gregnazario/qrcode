@@ -1,1 +1,5 @@
-// svg, pdf, eps added in later tasks
+//! Format writers: pure serializers of a VectorScene.
+
+#[doc(hidden)]
+pub mod common;
+pub mod svg;
