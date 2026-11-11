@@ -15,3 +15,5 @@ zune-jpeg.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
+tiny-skia.workspace = true
+rqrr.workspace = true
