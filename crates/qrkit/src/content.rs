@@ -106,12 +106,97 @@ impl Content {
                 validate_phone(n)?;
                 Ok(format!("tel:{n}"))
             }
-            Content::Wifi { .. } => Err(Error::Content(
-                "wifi formatting arrives in a later task".into(),
-            )),
-            Content::VCard(_) => Err(Error::Content(
-                "vcard formatting arrives in a later task".into(),
-            )),
+            Content::Wifi {
+                ssid,
+                password,
+                encryption,
+                hidden,
+            } => {
+                if ssid.is_empty() {
+                    return Err(Error::Content("wifi ssid must not be empty".into()));
+                }
+                let t = match encryption {
+                    Encryption::Wpa => "WPA",
+                    Encryption::Wep => "WEP",
+                    Encryption::Nopass => "nopass",
+                };
+                let mut out = format!("WIFI:T:{t};S:{};", escape_wifi(ssid));
+                match (encryption, password) {
+                    (Encryption::Nopass, None) => {}
+                    (Encryption::Nopass, Some(_)) => {
+                        return Err(Error::Content(
+                            "nopass network cannot have a password".into(),
+                        ));
+                    }
+                    (_, None) => {
+                        return Err(Error::Content("WPA/WEP network requires a password".into()))
+                    }
+                    (_, Some(p)) => out.push_str(&format!("P:{};", escape_wifi(p))),
+                }
+                if *hidden {
+                    out.push_str("H:true;");
+                }
+                out.push(';');
+                Ok(out)
+            }
+            Content::VCard(v) => {
+                if v.name.is_empty() {
+                    return Err(Error::Content("vcard name (FN) must not be empty".into()));
+                }
+                // Derive N from FN: with two or more tokens, the last is the
+                // family name and the rest given names; a single token becomes
+                // the given name. Pad to the five N components
+                // (Family;Given;Middle;Prefix;Suffix).
+                let mut tokens: Vec<&str> = v.name.split_whitespace().collect();
+                let family = if tokens.len() >= 2 {
+                    tokens.pop()
+                } else {
+                    None
+                };
+                let mut n = String::new();
+                if let Some(family) = family {
+                    n.push_str(family);
+                }
+                for given in &tokens {
+                    n.push(';');
+                    n.push_str(given);
+                }
+                while n.matches(';').count() < 4 {
+                    n.push(';');
+                }
+                let mut lines = vec![
+                    "BEGIN:VCARD".to_string(),
+                    "VERSION:3.0".to_string(),
+                    format!("FN:{}", escape_vcard_text(&v.name)),
+                    format!("N:{n}"),
+                ];
+                if let Some(org) = &v.org {
+                    lines.push(format!("ORG:{}", escape_vcard_text(org)));
+                }
+                if let Some(title) = &v.title {
+                    lines.push(format!("TITLE:{}", escape_vcard_text(title)));
+                }
+                for tel in &v.phones {
+                    lines.push(format!("TEL:{}", escape_vcard_text(tel)));
+                }
+                for mail in &v.emails {
+                    lines.push(format!("EMAIL:{}", escape_vcard_text(mail)));
+                }
+                if let Some(url) = &v.url {
+                    lines.push(format!("URL:{}", escape_vcard_text(url)));
+                }
+                if let Some(addr) = &v.address {
+                    // ADR is a structured value: the address string is the
+                    // pre-joined tail (street;locality;region;postal;country)
+                    // and is passed through unescaped.
+                    lines.push(format!("ADR:;;{addr}"));
+                }
+                if let Some(note) = &v.note {
+                    lines.push(format!("NOTE:{}", escape_vcard_text(note)));
+                }
+                lines.push("END:VCARD".to_string());
+                Ok(lines.join("\n"))
+            }
             Content::Geo { lat, lon } => {
                 if !(-90.0..=90.0).contains(lat) || !(-180.0..=180.0).contains(lon) {
                     return Err(Error::Content(
@@ -123,9 +208,32 @@ impl Content {
                 }
                 Ok(format!("geo:{lat},{lon}"))
             }
-            Content::Calendar(_) => Err(Error::Content(
-                "calendar formatting arrives in a later task".into(),
-            )),
+            Content::Calendar(ev) => {
+                if ev.title.is_empty() {
+                    return Err(Error::Content("calendar title must not be empty".into()));
+                }
+                validate_utc_timestamp(&ev.start_utc)?;
+                validate_utc_timestamp(&ev.end_utc)?;
+                if ev.end_utc < ev.start_utc {
+                    return Err(Error::Content(
+                        "calendar end must not be before start".into(),
+                    ));
+                }
+                let mut lines = vec![
+                    "BEGIN:VEVENT".to_string(),
+                    format!("SUMMARY:{}", escape_vcard_text(&ev.title)),
+                    format!("DTSTART:{}", ev.start_utc),
+                    format!("DTEND:{}", ev.end_utc),
+                ];
+                if let Some(loc) = &ev.location {
+                    lines.push(format!("LOCATION:{}", escape_vcard_text(loc)));
+                }
+                if let Some(desc) = &ev.description {
+                    lines.push(format!("DESCRIPTION:{}", escape_vcard_text(desc)));
+                }
+                lines.push("END:VEVENT".to_string());
+                Ok(lines.join("\n"))
+            }
         }
     }
 }
@@ -161,14 +269,12 @@ fn percent_encode(s: &str) -> String {
     out
 }
 
-/// Escape a value inside a `WIFI:` payload (backslash, comma, semicolon, quote).
-// Wired up in Task 3 (wifi payload formatting).
-#[allow(dead_code)]
+/// Escape a value inside a `WIFI:` payload (backslash, comma, semicolon, quote, colon).
 pub(crate) fn escape_wifi(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
         match c {
-            '\\' | ',' | ';' | '"' => {
+            '\\' | ',' | ';' | '"' | ':' => {
                 out.push('\\');
                 out.push(c);
             }
@@ -179,8 +285,6 @@ pub(crate) fn escape_wifi(s: &str) -> String {
 }
 
 /// Escape a TEXT value in vCard/VEVENT (backslash, semicolon, comma, newline).
-// Wired up in Task 3 (vcard/calendar payload formatting).
-#[allow(dead_code)]
 pub(crate) fn escape_vcard_text(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -195,4 +299,21 @@ pub(crate) fn escape_vcard_text(s: &str) -> String {
         }
     }
     out
+}
+
+/// Validate a `YYYYMMDDTHHMMSSZ` UTC timestamp.
+pub fn validate_utc_timestamp(s: &str) -> Result<(), Error> {
+    let b = s.as_bytes();
+    let ok = b.len() == 16
+        && b[..8].iter().all(|c| c.is_ascii_digit())
+        && b[8] == b'T'
+        && b[9..15].iter().all(|c| c.is_ascii_digit())
+        && b[15] == b'Z';
+    if ok {
+        Ok(())
+    } else {
+        Err(Error::Content(format!(
+            "invalid UTC timestamp '{s}', expected YYYYMMDDTHHMMSSZ"
+        )))
+    }
 }

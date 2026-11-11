@@ -12,3 +12,6 @@ serde.workspace = true
 base64.workspace = true
 png.workspace = true
 zune-jpeg.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
