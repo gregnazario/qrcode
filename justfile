@@ -1,4 +1,5 @@
-default: --list
+default:
+    @just --list
 
 build:
     cargo build --workspace --release

@@ -1,10 +1,10 @@
-pub mod content;   // stub now, filled in Task 2
-pub mod scene;     // stub
-pub mod style;     // stub
-pub mod logo;      // stub
-pub mod render;    // stub
-pub mod writers;   // stub
-pub mod builder;   // stub
+pub mod builder;
+pub mod content; // stub now, filled in Task 2
+pub mod logo; // stub
+pub mod render; // stub
+pub mod scene; // stub
+pub mod style; // stub
+pub mod writers; // stub
 
 /// Errors produced while building or writing a QR code.
 #[derive(Debug, thiserror::Error)]
