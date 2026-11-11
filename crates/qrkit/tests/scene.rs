@@ -49,6 +49,10 @@ fn hex_parsing_supports_3_4_6_8_digit_forms() {
     ); // # optional
     assert!(Rgba::from_hex("#12345").is_err());
     assert!(Rgba::from_hex("#zzzzzz").is_err());
+    // Multibyte UTF-8 must return Err, not panic on mid-character slices.
+    assert!(Rgba::from_hex("中").is_err()); // 3 bytes -> 3-digit arm
+    assert!(Rgba::from_hex("😀").is_err()); // 4 bytes -> 4-digit arm
+    assert!(Rgba::from_hex("中中").is_err()); // 6 bytes -> 6-digit arm
 }
 
 #[test]

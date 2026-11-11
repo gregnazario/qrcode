@@ -35,6 +35,11 @@ impl Rgba {
     pub fn from_hex(s: &str) -> Result<Rgba, Error> {
         let s = s.strip_prefix('#').unwrap_or(s);
         let err = || Error::InvalidStyle(format!("invalid hex color '{s}'"));
+        // Reject non-ASCII early: byte-length dispatch would otherwise slice
+        // multibyte UTF-8 characters mid-character and panic.
+        if !s.is_ascii() {
+            return Err(err());
+        }
         let (r, g, b, a) = match s.len() {
             3 => {
                 let h = |i: usize| -> Result<u8, Error> {
