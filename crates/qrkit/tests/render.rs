@@ -21,6 +21,17 @@ fn matrix_rejects_bad_version_and_huge_payload() {
 }
 
 #[test]
+fn fixed_version_honors_requested_ecc_and_auto_keeps_high() {
+    // A pinned version must not silently boost ECC (qrcodegen's boostecl
+    // would raise Low to High since "x" fits version 10 even at High).
+    let m = Matrix::encode("x", Ecc::Low, Version::Fixed(10)).unwrap();
+    assert_eq!(m.ecc(), qrkit::style::Ecc::to_qrcodegen(Ecc::Low));
+    // Auto keeps boosting, so an explicit High stays High.
+    let m = Matrix::encode("x", Ecc::High, Version::Auto).unwrap();
+    assert_eq!(m.ecc(), qrkit::style::Ecc::to_qrcodegen(Ecc::High));
+}
+
+#[test]
 fn square_scene_has_margin_and_background() {
     let m = matrix();
     let scene = render(&m, &StyleConfig::new());

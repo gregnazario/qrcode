@@ -36,7 +36,9 @@ impl Matrix {
             Version::Fixed(v) => {
                 let ver = qrcodegen::Version::new(v);
                 let segs = qrcodegen::QrSegment::make_segments(payload);
-                qrcodegen::QrCode::encode_segments_advanced(&segs, ecl, ver, ver, None, true)
+                // boostecl=false: the version is pinned, so boosting ECC here
+                // would silently override the level the caller explicitly chose.
+                qrcodegen::QrCode::encode_segments_advanced(&segs, ecl, ver, ver, None, false)
             }
         }
         .map_err(|e| match e {
@@ -51,6 +53,11 @@ impl Matrix {
 
     pub fn size(&self) -> i32 {
         self.code.size()
+    }
+
+    /// The error correction level actually used by the encoded matrix.
+    pub fn ecc(&self) -> qrcodegen::QrCodeEcc {
+        self.code.error_correction_level()
     }
 
     pub fn get(&self, x: i32, y: i32) -> bool {
