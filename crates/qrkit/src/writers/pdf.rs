@@ -32,16 +32,25 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
     let logo = scene.logo.as_ref().and_then(logo_streams);
 
     // ---- content stream ----
+    // Every painting unit (background rect, each scene item, the logo `Do`)
+    // runs inside its own `q … Q` graphics-state block. Without this, the
+    // `/A{j} gs` fill alpha of a translucent fill and the `/Pattern cs`
+    // colorspace of a gradient would leak into all later painting: a
+    // translucent background would dim every opaque module after it.
     let mut content = String::new();
     let _ = writeln!(content, "0.000 0.000 0.000 rg"); // deterministic initial fill
     if let Some(bg) = &scene.background {
+        let _ = writeln!(content, "q");
         set_fill_color(bg, &grads, &mut alphas, &mut content);
         let _ = writeln!(content, "0 0 {s:.3} {s:.3} re");
         let _ = writeln!(content, "f");
+        let _ = writeln!(content, "Q");
     }
     for item in &scene.items {
+        let _ = writeln!(content, "q");
         set_fill_color(&item.fill, &grads, &mut alphas, &mut content);
         emit_path(&item.shape, &fy, item.fill_rule, &mut content);
+        let _ = writeln!(content, "Q");
     }
     if let Some(img) = &scene.logo {
         if logo.is_some() {
