@@ -93,8 +93,11 @@ Each type validates fields and formats a standards-compliant payload string:
   (auto or 1–40), `margin_modules` (default 4).
 - **Colors:** module fill and eye fill each accept `Solid(Rgba)` or a
   gradient (linear with angle, or radial). Background: solid or transparent
-  (transparent supported in SVG/PDF; EPS blends against white).
-- **Shapes:** `ModuleShape::Square | Rounded | Dots | Classy`;
+  (transparent supported in SVG/PDF). In EPS, a transparent background
+  renders as white, and any alpha in fills is blended against the effective
+  background color (white when transparent).
+- **Shapes:** `ModuleShape::Square | Rounded | Dots | Classy` (Classy =
+  rounded with two diagonally opposite corners left square);
   `EyeShape::Square | Rounded | Circle | Leaf`.
 - **Logo:** `LogoConfig { bytes, size_ratio (0.1–0.33, default 0.25),
   padding }`. Modules covered by the logo box are skipped (not overdrawn).
