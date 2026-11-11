@@ -17,3 +17,4 @@ zune-jpeg.workspace = true
 insta.workspace = true
 tiny-skia.workspace = true
 rqrr.workspace = true
+lopdf.workspace = true

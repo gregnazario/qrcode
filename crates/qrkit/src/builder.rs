@@ -4,7 +4,7 @@ use crate::content::Content;
 use crate::render::{render, Matrix};
 use crate::scene::VectorScene;
 use crate::style::StyleConfig;
-use crate::writers::svg;
+use crate::writers::{pdf, svg};
 use crate::Error;
 
 /// A built QR code: the scene plus non-fatal warnings.
@@ -51,5 +51,11 @@ impl QrBuilder {
     /// call `build()` first if you need them).
     pub fn to_svg(&self) -> Result<Vec<u8>, Error> {
         Ok(svg::write(&self.build()?.scene))
+    }
+
+    /// Convenience: build and serialize to PDF (warnings are ignored here;
+    /// call `build()` first if you need them).
+    pub fn to_pdf(&self) -> Result<Vec<u8>, Error> {
+        Ok(pdf::write(&self.build()?.scene))
     }
 }
