@@ -15,6 +15,16 @@ fieldset { margin-top: 1rem; border-radius: 8px; }
 #qr svg { width: min(100%, 520px); height: auto; border-radius: 8px; }
 #warnings .warn { color: #b45309; }
 #warnings .error { color: #b91c1c; }
-#downloads { margin-top: 1rem; display: flex; gap: 0.5rem; }
+
+/* live badges above the preview */
+#badges { display: flex; gap: 0.6rem; align-items: center; min-height: 1.7rem; }
+#badges span { font-size: 0.85rem; padding: 0.15rem 0.7rem; border-radius: 999px; }
+#scan-badge.ok { background: color-mix(in srgb, #15803d 15%, transparent); color: #15803d; }
+#scan-badge.bad { background: color-mix(in srgb, #b91c1c 15%, transparent); color: #b91c1c; }
+#scan-badge.pending { opacity: 0.6; }
+#info-badge { opacity: 0.65; font-variant-numeric: tabular-nums; }
+
+#downloads { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
 button { padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+button.preset { padding: 0.3rem 0.8rem; font-size: 0.85rem; text-transform: capitalize; }
 @media (max-width: 800px) { main { grid-template-columns: 1fr; } }

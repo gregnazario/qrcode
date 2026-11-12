@@ -187,6 +187,28 @@ pub enum Commands {
         #[arg(long)]
         description: Option<String>,
     },
+    /// Print shell completion scripts (bash, zsh, fish, elvish, powershell)
+    Completions { shell: clap_complete::Shell },
+    /// Print a man page (ROFF) to stdout, e.g. `qrkit man > qrkit.1`
+    Man,
+}
+
+/// Shell completion script for the given shell (stdout-ready bytes).
+pub fn completions_for(shell: clap_complete::Shell) -> Vec<u8> {
+    use clap::CommandFactory;
+    let mut buf = Vec::new();
+    clap_complete::generate(shell, &mut Cli::command(), "qrkit", &mut buf);
+    buf
+}
+
+/// ROFF man page (`qrkit man > qrkit.1`).
+pub fn man_page() -> Result<Vec<u8>, String> {
+    use clap::CommandFactory;
+    let mut buf = Vec::new();
+    clap_mangen::Man::new(Cli::command())
+        .render(&mut buf)
+        .map_err(|e| e.to_string())?;
+    Ok(buf)
 }
 
 pub fn content_from_args(cli: &Cli) -> Result<Content, Error> {
@@ -270,6 +292,10 @@ pub fn content_from_args(cli: &Cli) -> Result<Content, Error> {
             qrkit::content::validate_utc_timestamp(&ev.start_utc)?;
             qrkit::content::validate_utc_timestamp(&ev.end_utc)?;
             Content::Calendar(ev)
+        }
+        // Meta subcommands are dispatched in main's `run` before this runs.
+        Commands::Completions { .. } | Commands::Man => {
+            return Err(Error::Content("meta subcommand handled elsewhere".into()));
         }
     })
 }

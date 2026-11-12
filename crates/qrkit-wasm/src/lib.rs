@@ -98,21 +98,7 @@ pub fn render_to_bytes(
     config_json: &str,
     format: &str,
 ) -> Result<(Option<Vec<u8>>, Vec<String>), String> {
-    let cfg: WConfig = serde_json::from_str(config_json).map_err(|e| format!("config: {e}"))?;
-    // PNG resolution (pixels per module) is a writer param, not part of
-    // StyleConfig — read it before the style is consumed.
-    let px = cfg
-        .style
-        .as_ref()
-        .and_then(|s| s.px)
-        .unwrap_or(24)
-        .clamp(1, 256);
-    let content = to_content(cfg.content)?;
-    let style = cfg.style.map(to_style).transpose()?.unwrap_or_default();
-    let builder = qrkit::builder::QrBuilder::new(content)
-        .map_err(|e| e.to_string())?
-        .style(style);
-    let img = builder.build().map_err(|e| e.to_string())?;
+    let (img, px, warnings, _) = build(config_json)?;
     let bytes = match format {
         "svg" => qrkit::writers::svg::write(&img.scene),
         "pdf" => qrkit::writers::pdf::write(&img.scene),
@@ -124,7 +110,74 @@ pub fn render_to_bytes(
             ))
         }
     };
-    Ok((Some(bytes), img.warnings))
+    Ok((Some(bytes), warnings))
+}
+
+/// Build the QrImage (plus png resolution, warnings, and the payload) shared
+/// by every entry point.
+fn build(config_json: &str) -> Result<(qrkit::builder::QrImage, u32, Vec<String>, String), String> {
+    let cfg: WConfig = serde_json::from_str(config_json).map_err(|e| format!("config: {e}"))?;
+    // PNG resolution (pixels per module) is a writer param, not part of
+    // StyleConfig — read it before the style is consumed.
+    let px = cfg
+        .style
+        .as_ref()
+        .and_then(|s| s.px)
+        .unwrap_or(24)
+        .clamp(1, 256);
+    let content = to_content(cfg.content)?;
+    let payload = content.payload().map_err(|e| e.to_string())?;
+    let style = cfg.style.map(to_style).transpose()?.unwrap_or_default();
+    let builder = qrkit::builder::QrBuilder::new(content)
+        .map_err(|e| e.to_string())?
+        .style(style);
+    let img = builder.build().map_err(|e| e.to_string())?;
+    let warnings = img.warnings.clone();
+    Ok((img, px, warnings, payload))
+}
+
+/// Human-readable version/size/ECC summary for the info badge, e.g.
+/// "v3 · 29×29 · ECC H".
+fn info_line(img: &qrkit::builder::QrImage) -> String {
+    let n = img.matrix.size();
+    let version = (n - 17) / 4;
+    let ecc = img.matrix.ecc_name();
+    format!("v{version} · {n}×{n} · ECC {ecc}")
+}
+
+/// Pure (non-wasm_bindgen) info lookup so tests and generate() share it.
+pub fn info_for(config_json: &str) -> Result<String, String> {
+    let (img, _, _, _) = build(config_json)?;
+    Ok(info_line(&img))
+}
+
+/// Live scannability check: rasterize the scene (8 px/module) and decode
+/// with rqrr — the same decoder family that gates the test suite. True only
+/// when the rendered code decodes back to the EXACT input payload.
+/// Translucent/transparent backgrounds are composited over white first (the
+/// badge checks decodability on paper, not on the user's page backdrop).
+#[wasm_bindgen]
+pub fn verify_scans(config_json: &str) -> Result<bool, JsError> {
+    let (img, _, _, payload) = build(config_json).map_err(|e| JsError::new(&e))?;
+    let pm = qrkit::writers::raster::rasterize(&img.scene, 8);
+    let w = pm.width() as usize;
+    let gray: Vec<u8> = pm
+        .pixels()
+        .iter()
+        .map(|p| {
+            let c = p.demultiply(); // straight u8 rgba
+            let a = c.alpha() as f32 / 255.0;
+            // composite over white, then Rec.601 luminance (0..255)
+            let over = |v: u8| (v as f32 / 255.0) * a + (1.0 - a);
+            let (r, g, b) = (over(c.red()), over(c.green()), over(c.blue()));
+            ((0.299 * r + 0.587 * g + 0.114 * b) * 255.0) as u8
+        })
+        .collect();
+    let mut prepared = rqrr::PreparedImage::prepare_from_greyscale(w, w, |x, y| gray[y * w + x]);
+    Ok(prepared
+        .detect_grids()
+        .into_iter()
+        .any(|grid| matches!(grid.decode(), Ok((_, ref content)) if *content == payload)))
 }
 
 /// Wasm-bindgen result holder.
@@ -134,6 +187,7 @@ pub struct Generated {
     pdf: Option<Vec<u8>>,
     eps: Option<Vec<u8>>,
     png: Option<Vec<u8>>,
+    info: String,
     warnings: Vec<String>,
 }
 
@@ -157,6 +211,11 @@ impl Generated {
     pub fn png(&self) -> Option<Vec<u8>> {
         self.png.clone()
     }
+    /// Version/size/ECC summary, e.g. "v3 · 29×29 · ECC Q".
+    #[wasm_bindgen(getter)]
+    pub fn info(&self) -> String {
+        self.info.clone()
+    }
     #[wasm_bindgen(getter)]
     pub fn warnings(&self) -> Vec<JsValue> {
         self.warnings.iter().map(|w| JsValue::from_str(w)).collect()
@@ -165,20 +224,29 @@ impl Generated {
 
 #[wasm_bindgen]
 pub fn generate(config_json: &str, format: &str) -> Result<Generated, JsError> {
-    let (bytes, warnings) = render_to_bytes(config_json, format).map_err(|e| JsError::new(&e))?;
+    let (img, px, warnings, _) = build(config_json).map_err(|e| JsError::new(&e))?;
+    let info = info_line(&img);
+    let bytes = match format {
+        "svg" => qrkit::writers::svg::write(&img.scene),
+        "pdf" => qrkit::writers::pdf::write(&img.scene),
+        "eps" => qrkit::writers::eps::write(&img.scene),
+        "png" => qrkit::writers::png::write(&img.scene, px),
+        _ => return Err(JsError::new("unknown format")),
+    };
     let mut out = Generated {
         svg: None,
         pdf: None,
         eps: None,
         png: None,
+        info,
         warnings,
     };
     match format {
-        "svg" => out.svg = bytes,
-        "pdf" => out.pdf = bytes,
-        "eps" => out.eps = bytes,
-        "png" => out.png = bytes,
-        _ => return Err(JsError::new("unknown format")),
+        "svg" => out.svg = Some(bytes),
+        "pdf" => out.pdf = Some(bytes),
+        "eps" => out.eps = Some(bytes),
+        "png" => out.png = Some(bytes),
+        _ => unreachable!(),
     }
     Ok(out)
 }

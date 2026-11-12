@@ -1,4 +1,4 @@
-use qrkit_wasm::render_to_bytes;
+use qrkit_wasm::{render_to_bytes, verify_scans};
 
 const CFG: &str = r##"{
   "content": { "type": "wifi", "ssid": "Cafe Guest", "password": "latte-2026", "encryption": "wpa", "hidden": false },
@@ -89,4 +89,33 @@ fn png_generation_from_json() {
     let dec = png::Decoder::new(std::io::Cursor::new(&default_bytes));
     let reader = dec.read_info().unwrap();
     assert_eq!(reader.info().width % 24, 0, "default px divides width");
+}
+
+#[test]
+fn info_line_reports_version_size_ecc() {
+    let info = qrkit_wasm::info_for(r#"{"content": {"type": "text", "text": "hi"}}"#).unwrap();
+    assert!(info.contains("×"), "info carries dimensions: {info}");
+    // ECC H is forced when a logo is present.
+    use base64::Engine as _;
+    let png = std::fs::read("../qrkit/tests/fixtures/logo.png").unwrap();
+    let cfg = format!(
+        r#"{{"content": {{"type": "text", "text": "x"}},
+            "style": {{"ecc": "medium", "logo": {{"dataBase64": "{}"}}}}}}"#,
+        base64::engine::general_purpose::STANDARD.encode(png)
+    );
+    let info = qrkit_wasm::info_for(&cfg).unwrap();
+    assert!(info.ends_with("ECC H"), "logo forces ECC H: {info}");
+}
+
+#[test]
+fn verify_scans_true_for_default_and_false_for_destructive_style() {
+    assert!(verify_scans(r#"{"content": {"type": "text", "text": "verify me"}}"#).unwrap());
+    // Aggressive: tiny dots + decorative circle eyes — the geometry that
+    // motivated the scanner-safety work.
+    let hostile = r##"{"content": {"type": "text", "text": "verify me"},
+        "style": {"shape": "dots", "dotRadius": 0.1, "eye": "circle", "decorativeEyes": true}}"##;
+    assert!(
+        !verify_scans(hostile).unwrap(),
+        "hostile style should fail the live decode"
+    );
 }

@@ -1,6 +1,8 @@
 use clap::Parser;
 use qrkit::builder::QrBuilder;
-use qrkit_cli::args::{content_from_args, output_format, style_from_args, Cli};
+use qrkit_cli::args::{
+    completions_for, content_from_args, man_page, output_format, style_from_args, Cli, Commands,
+};
 use qrkit_cli::preview;
 
 fn main() {
@@ -12,6 +14,25 @@ fn main() {
 }
 
 fn run(cli: &Cli) -> Result<(), String> {
+    // Meta subcommands that produce text instead of a QR code.
+    match &cli.command {
+        Commands::Completions { shell } => {
+            use std::io::Write as _;
+            std::io::stdout()
+                .write_all(&completions_for(*shell))
+                .map_err(|e| e.to_string())?;
+            return Ok(());
+        }
+        Commands::Man => {
+            use std::io::Write as _;
+            std::io::stdout()
+                .write_all(&man_page()?)
+                .map_err(|e| e.to_string())?;
+            return Ok(());
+        }
+        _ => {}
+    }
+
     let content = content_from_args(cli).map_err(|e| e.to_string())?;
     let style = style_from_args(cli).map_err(|e| e.to_string())?;
     let format = output_format(cli).map_err(|e| e.to_string())?;
