@@ -20,8 +20,9 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
 
-    /// Output file; format inferred from extension (svg|pdf|eps|png|term|six).
-    /// Omit to write SVG to stdout (or render to the terminal).
+    /// Output file; format inferred from extension
+    /// (svg|pdf|eps|png|term/ansi/txt|six/sixel). Omit to write SVG to
+    /// stdout (or render to the terminal).
     #[arg(short, long, global = true)]
     pub output: Option<PathBuf>,
 

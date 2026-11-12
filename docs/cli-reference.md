@@ -23,7 +23,7 @@ the extension) or stdout (SVG) / the terminal (terminal formats).
 | `--eye <S>` | `square` `rounded` `circle` `leaf`, default `square` | Eye shape |
 | `--decorative-eyes` | flag | Pure-shape eyes without scanner-safety tabs/nubs (warns) |
 | `--fg <HEX>` | default `#000000` | Module fill; 3/4/6/8-digit hex |
-| `--bg <HEX\|transparent>` | default `#ffffff` | Background; `transparent` supported everywhere except sixel (composites to white) |
+| `--bg <HEX\|transparent>` | default `#ffffff` | Background; `transparent` is exact in svg/pdf/png, composites to white in eps/sixel/term |
 | `--gradient <KIND>` | `linear` `radial` | Gradient fill from `--fg` to `--gradient-to` (implied `linear` when only `--gradient-to` is given) |
 | `--gradient-to <HEX>` | — | Gradient end color |
 | `--gradient-angle <DEG>` | default 0 | Linear gradient angle (0 = left→right, 90 = top→bottom) |
@@ -33,7 +33,7 @@ the extension) or stdout (SVG) / the terminal (terminal formats).
 | `--logo-size <R>` | 0.1..=0.33, default 0.25 | Logo size as fraction of the code |
 | `--logo-padding <P>` | modules, default 1.0 | Empty ring around the logo |
 | `--preview` | flag | Unicode half-block preview on stderr (same matrix as the output, so `--version`/`--ecc` are honored) |
-| `-h`, `--help` / `-V` | | Help / version |
+| `-h`, `--help` | | Help (`--version` is the QR symbol version, so there is no CLI-version flag) |
 
 ## Subcommands
 

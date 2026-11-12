@@ -3,9 +3,12 @@
 `qrkit` is a library first — the CLI and web app are thin layers over it.
 Everything is available from the crate root.
 
+The crate is not yet published to crates.io; use a path or git dependency:
+
 ```toml
 [dependencies]
-qrkit = "0.1"
+qrkit = { path = "crates/qrkit" }
+# or: qrkit = { git = "https://github.com/gregnazario/qrcode" }
 ```
 
 ## Quick start
@@ -42,48 +45,58 @@ Content ──payload()──▶ str ──qrcodegen──▶ Matrix ──rende
 ## Builder API
 
 ```rust
-use qrkit::content::{Content, Wifi};
+use qrkit::builder::QrBuilder;
+use qrkit::content::{Content, Encryption};
 use qrkit::logo::LogoConfig;
 use qrkit::scene::{Fill, Rgba};
-use qrkit::style::{Ecc, EyeShape, StyleConfig};
+use qrkit::style::{Ecc, EyeShape, ModuleShape, StyleConfig};
 
-let logo = LogoConfig::from_bytes(std::fs::read("logo.png")?)?;
+fn make_outputs() -> Result<(), Box<dyn std::error::Error>> {
+    let logo = LogoConfig::from_bytes(std::fs::read("logo.png")?)?;
 
-let img = QrBuilder::new(Content::Wifi(Wifi {
-    ssid: "Cafe Guest".into(),
-    password: Some("latte-2026".into()),
-    encryption: qrkit::content::Encryption::Wpa,
-    hidden: false,
-}))?
-.style(StyleConfig::new()
-    .ecc(Ecc::High)                                    // logo forces this anyway
-    .margin_modules(4)
-    .shape(ModuleShape::Classy)
-    .eye_shape(EyeShape::Leaf)
-    .decorative_eyes(false)                            // scanner-safe default
-    .fill(Fill::LinearGradient {
-        from: Rgba::from_hex("#0d47a1")?,
-        to: Rgba::from_hex("#42a5f5")?,
-        angle_deg: 45.0,
-    })
-    .eye_fill(Fill::Solid(Rgba::from_hex("#0d47a1")?))
-    .background(Some(Fill::Solid(Rgba::WHITE)))        // None = transparent
-    .logo(Some(logo.size_ratio(0.25))))
-.build()?;
+    let img = QrBuilder::new(Content::Wifi {
+        ssid: "Cafe Guest".into(),
+        password: Some("latte-2026".into()),
+        encryption: Encryption::Wpa,
+        hidden: false,
+    })?
+    .style(StyleConfig::new()
+        .ecc(Ecc::High)                                // logo forces this anyway
+        .margin_modules(4)
+        .shape(ModuleShape::Classy)
+        .eye_shape(EyeShape::Leaf)
+        .decorative_eyes(false)                        // scanner-safe default
+        .fill(Fill::LinearGradient {
+            from: Rgba::from_hex("#0d47a1")?,
+            to: Rgba::from_hex("#42a5f5")?,
+            angle_deg: 45.0,
+        })
+        .eye_fill(Fill::Solid(Rgba::from_hex("#0d47a1")?))
+        .background(Some(Fill::Solid(Rgba::WHITE)))    // None = transparent
+        .logo(Some(logo.size_ratio(0.25))))
+    .build()?;
 
-for warning in &img.warnings {
-    eprintln!("warning: {warning}");
+    for warning in &img.warnings {
+        eprintln!("warning: {warning}");
+    }
+
+    std::fs::write("qr.svg", qrkit::writers::svg::write(&img.scene))?;
+    std::fs::write("qr.pdf", qrkit::writers::pdf::write(&img.scene))?;
+    std::fs::write("qr.eps", qrkit::writers::eps::write(&img.scene))?;
+    std::fs::write("qr.png", qrkit::writers::png::write(&img.scene, 24))?;
+
+    // term takes Matrix + Style (module shapes don't apply in a character grid)
+    let term_style = StyleConfig::new(); // reuse your style for colors
+    print!("{}", String::from_utf8_lossy(&qrkit::writers::term::render(
+        &img.matrix, &term_style,
+    )));
+    Ok(())
 }
-
-std::fs::write("qr.svg", qrkit::writers::svg::write(&img.scene))?;
-std::fs::write("qr.pdf", qrkit::writers::pdf::write(&img.scene))?;
-std::fs::write("qr.eps", qrkit::writers::eps::write(&img.scene))?;
-std::fs::write("qr.png", qrkit::writers::png::write(&img.scene, 24))?;
-print!("{}", String::from_utf8_lossy(&qrkit::writers::term::render(
-    &img.matrix,
-    &StyleConfig::new(), // term takes Matrix + Style (shapes don't apply)
-)?)?);
 ```
+
+Notes: `Rgba::from_hex` and the builder's content validation return
+`qrkit::Error` directly, so `?` works inside any function returning that
+(or `Box<dyn Error>` for mixed IO, as above).
 
 Convenience methods `to_svg` / `to_pdf` / `to_eps` / `to_term` build and
 serialize in one step (warnings are dropped — call `build()` first if you

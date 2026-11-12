@@ -6,12 +6,14 @@ design decisions behind it and the one switch that opts out.
 
 ## The decode gate
 
-The test suite rasterizes every styled scene with the production
-rasterizer, decodes it with [rqrr](https://crates.io/crates/rqrr), and
-asserts the **exact payload** round-trips. This runs for all 40 module-shape
-× eye-shape × logo combinations at multiple render sizes, plus the terminal
-half-block format and every terminal image protocol. If a style combination
-fails to decode, it's a bug — geometry changes until it passes.
+The test suite rasterizes styled scenes with the production rasterizer,
+decodes them with [rqrr](https://crates.io/crates/rqrr), and asserts the
+**exact payload** round-trips: all 40 module-shape × eye-shape × logo
+combinations at 1024px, the default style at 256/512/1024px, plus the
+terminal half-block and sixel formats end-to-end (the kitty/iTerm2
+protocols embed the PNG output, whose encoder carries its own decode test).
+If a style combination fails to decode, it's a bug — geometry changes
+until it passes.
 
 ## Eye geometry is decode-capped
 
@@ -31,8 +33,9 @@ So the shipped geometry is:
 - **circle** eyes: the circle plus small corner tabs completing the finder
   corners
 
-These caps came from the decode matrix itself — the original larger radii
-failed 24 of 40 style combinations and were tuned until everything decoded.
+These caps came from the decode matrix itself — during development the
+original larger radii failed the gate for 32 of the 40 style combinations
+and were tuned until everything decoded.
 
 ## `--decorative-eyes`: the documented opt-out
 

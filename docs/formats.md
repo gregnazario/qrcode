@@ -1,8 +1,8 @@
 # Output formats
 
-`qrkit` renders one vector scene into any of nine output formats (plus
-`auto`). All formats share identical geometry — the SVG, PDF, and EPS of
-the same code are pixel-consistent by construction.
+`qrkit` renders one vector scene into any of eight output formats, with
+`auto` picking a terminal one. All formats share identical geometry — the
+SVG, PDF, and EPS of the same code are pixel-consistent by construction.
 
 Pick a format with `--format <name>` or infer it from the output extension
 (`-o qr.svg`, `qr.pdf`, `qr.eps`, `qr.png`, `qr.term`/`.ansi`/`.txt`,

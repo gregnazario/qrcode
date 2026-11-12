@@ -59,9 +59,9 @@ Payload: `tel:number`.
 ## WiFi
 
 ```console
-$ qrkit wifi --ssid "Cafe Guest" --password "latte-2026" --encryption wpa
+$ qrkit wifi --ssid "Cafe Guest" --password "latte-2026"   # wpa is the default
 $ qrkit wifi --ssid "OpenNet" --encryption nopass
-$ qrkit wifi --ssid "Hidden" --password "pw" --wpa --hidden
+$ qrkit wifi --ssid "Hidden" --password "pw" --encryption wpa --hidden
 ```
 
 Payload: `WIFI:T:WPA;S:<ssid>;P:<password>;H:true;;` where

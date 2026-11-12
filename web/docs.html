@@ -64,7 +64,7 @@
     <tr><td>email</td><td>to, subject, body</td><td>opens a composed mail</td></tr>
     <tr><td>sms</td><td>number, message</td><td>opens the SMS app</td></tr>
     <tr><td>phone</td><td>number</td><td>dials the number</td></tr>
-    <tr><td>wifi</td><td>SSID, password, encryption (WPA/WEP/open), hidden</td><td>joins the network</td></tr>
+    <tr><td>wifi</td><td>SSID, password, encryption (wpa/wep/nopass), hidden</td><td>joins the network</td></tr>
     <tr><td>vcard</td><td>name, org, title, phones, emails, URL</td><td>adds a contact</td></tr>
     <tr><td>geo</td><td>latitude, longitude</td><td>opens the map</td></tr>
     <tr><td>calendar</td><td>title, start/end (UTC <code>YYYYMMDDTHHMMSSZ</code>), location, description</td><td>saves the event</td></tr>
@@ -146,7 +146,7 @@ qrkit url "https://example.com" \
 qrkit wifi --ssid "Cafe Guest" --password "latte-2026" -o menu.eps
 qrkit vcard --name "Ada Lovelace" --email ada@example.com -o card.svg
 
-# terminal formats (auto-detects kitty / iTerm2 / sixel / half-blocks):
+# terminal formats (auto-detects kitty / iTerm2 / half-blocks):
 qrkit url "https://example.com" --format auto
 qrkit url "https://example.com" --format png --px 32 -o qr.png</code></pre>
   <p>Full flag reference, payload formats, and the library API:
