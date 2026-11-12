@@ -489,26 +489,26 @@ const CIRCLE_CORNER_TABS: [(f32, f32); 12] = [
     (1.0, 6.0), // bottom-left
 ];
 
-/// Convert Rect/RoundedRect/Circle to an equivalent Path subpath (closed).
-/// Writers only serialize Paths; this is the single conversion point.
-fn shape_subpath(shape: &Shape) -> Vec<PathCmd> {
+/// Convert Rect/RoundedRect/Circle to an equivalent Path subpath (closed),
+/// appending to `out`. Writers only serialize Paths; this is the single
+/// conversion point.
+fn push_subpath(shape: &Shape, out: &mut Vec<PathCmd>) {
     match *shape {
-        Shape::Rect { x, y, w, h } => vec![
-            PathCmd::Move(x, y),
-            PathCmd::Line(x + w, y),
-            PathCmd::Line(x + w, y + h),
-            PathCmd::Line(x, y + h),
-            PathCmd::Close,
-        ],
+        Shape::Rect { x, y, w, h } => {
+            out.push(PathCmd::Move(x, y));
+            out.push(PathCmd::Line(x + w, y));
+            out.push(PathCmd::Line(x + w, y + h));
+            out.push(PathCmd::Line(x, y + h));
+            out.push(PathCmd::Close);
+        }
         Shape::RoundedRect { x, y, w, h, radii } => {
             let k = 0.552_284_8; // circle-approximation constant for quarter arcs
             let (r_tl, r_tr, r_br, r_bl) = (radii.tl, radii.tr, radii.br, radii.bl);
             let (xr, yb) = (x + w, y + h);
-            let mut p = Vec::with_capacity(4 + 12);
-            p.push(PathCmd::Move(x + r_tl, y));
-            p.push(PathCmd::Line(xr - r_tr, y));
+            out.push(PathCmd::Move(x + r_tl, y));
+            out.push(PathCmd::Line(xr - r_tr, y));
             if r_tr > 0.0 {
-                p.push(PathCmd::Cubic(
+                out.push(PathCmd::Cubic(
                     xr - r_tr * (1.0 - k),
                     y,
                     xr,
@@ -517,9 +517,9 @@ fn shape_subpath(shape: &Shape) -> Vec<PathCmd> {
                     y + r_tr,
                 ));
             }
-            p.push(PathCmd::Line(xr, yb - r_br));
+            out.push(PathCmd::Line(xr, yb - r_br));
             if r_br > 0.0 {
-                p.push(PathCmd::Cubic(
+                out.push(PathCmd::Cubic(
                     xr,
                     yb - r_br * (1.0 - k),
                     xr - r_br * (1.0 - k),
@@ -528,9 +528,9 @@ fn shape_subpath(shape: &Shape) -> Vec<PathCmd> {
                     yb,
                 ));
             }
-            p.push(PathCmd::Line(x + r_bl, yb));
+            out.push(PathCmd::Line(x + r_bl, yb));
             if r_bl > 0.0 {
-                p.push(PathCmd::Cubic(
+                out.push(PathCmd::Cubic(
                     x + r_bl * (1.0 - k),
                     yb,
                     x,
@@ -539,9 +539,9 @@ fn shape_subpath(shape: &Shape) -> Vec<PathCmd> {
                     yb - r_bl,
                 ));
             }
-            p.push(PathCmd::Line(x, y + r_tl));
+            out.push(PathCmd::Line(x, y + r_tl));
             if r_tl > 0.0 {
-                p.push(PathCmd::Cubic(
+                out.push(PathCmd::Cubic(
                     x,
                     y + r_tl * (1.0 - k),
                     x + r_tl * (1.0 - k),
@@ -550,26 +550,39 @@ fn shape_subpath(shape: &Shape) -> Vec<PathCmd> {
                     y,
                 ));
             }
-            p.push(PathCmd::Close);
-            p
+            out.push(PathCmd::Close);
         }
         Shape::Circle { cx, cy, r } => {
             let k = 0.552_284_8 * r;
-            vec![
-                PathCmd::Move(cx + r, cy),
-                PathCmd::Cubic(cx + r, cy + k, cx + k, cy + r, cx, cy + r),
-                PathCmd::Cubic(cx - k, cy + r, cx - r, cy + k, cx - r, cy),
-                PathCmd::Cubic(cx - r, cy - k, cx - k, cy - r, cx, cy - r),
-                PathCmd::Cubic(cx + k, cy - r, cx + r, cy - k, cx + r, cy),
-                PathCmd::Close,
-            ]
+            out.push(PathCmd::Move(cx + r, cy));
+            out.push(PathCmd::Cubic(cx + r, cy + k, cx + k, cy + r, cx, cy + r));
+            out.push(PathCmd::Cubic(cx - k, cy + r, cx - r, cy + k, cx - r, cy));
+            out.push(PathCmd::Cubic(cx - r, cy - k, cx - k, cy - r, cx, cy - r));
+            out.push(PathCmd::Cubic(cx + k, cy - r, cx + r, cy - k, cx + r, cy));
+            out.push(PathCmd::Close);
         }
-        Shape::Path(ref cmds) => cmds.clone(),
+        Shape::Path(ref cmds) => out.extend_from_slice(cmds),
     }
+}
+
+/// Owned variant for callers building standalone subpaths (eye rings).
+fn shape_subpath(shape: &Shape) -> Vec<PathCmd> {
+    let mut v = Vec::new();
+    push_subpath(shape, &mut v);
+    v
 }
 
 /// Expose conversion for writers (and the end-to-end test harness).
 #[doc(hidden)]
 pub fn to_path(shape: &Shape) -> Vec<PathCmd> {
     shape_subpath(shape)
+}
+
+/// Buffer-reusing variant of [`to_path`] for writer hot loops: clears `out`
+/// and appends the shape's path commands, avoiding a fresh allocation per
+/// item (a dense scene serializes thousands of items per document).
+#[doc(hidden)]
+pub fn to_path_into(shape: &Shape, out: &mut Vec<PathCmd>) {
+    out.clear();
+    push_subpath(shape, out);
 }
