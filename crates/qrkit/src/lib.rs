@@ -15,8 +15,6 @@ pub enum Error {
     Content(String),
     #[error("data too large for QR code: {0}")]
     TooLarge(String),
-    #[error("encoding failed: {0}")]
-    Encoding(String),
     #[error("unsupported logo image format (expected PNG or JPEG)")]
     LogoUnsupportedFormat,
     #[error("logo decode failed: {0}")]

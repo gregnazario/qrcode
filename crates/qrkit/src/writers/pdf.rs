@@ -9,7 +9,7 @@
 
 use super::common::{collect_gradients, linear_endpoints};
 use crate::logo::decode_rgba;
-use crate::render::to_path;
+use crate::render::to_path_into;
 use crate::scene::{EmbeddedImage, Fill, FillRule, ImageFormat, PathCmd, Rgba, Shape, VectorScene};
 use std::fmt::Write as _;
 
@@ -32,25 +32,41 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
     let logo = scene.logo.as_ref().and_then(logo_streams);
 
     // ---- content stream ----
-    // Every painting unit (background rect, each scene item, the logo `Do`)
-    // runs inside its own `q … Q` graphics-state block. Without this, the
-    // `/A{j} gs` fill alpha of a translucent fill and the `/Pattern cs`
-    // colorspace of a gradient would leak into all later painting: a
-    // translucent background would dim every opaque module after it.
+    // Fills carrying extended graphics state — translucency (`/A{j} gs`) or
+    // a gradient pattern (`/Pattern cs … scn`) — would leak into later
+    // painting, so those runs are wrapped in `q … Q`. Opaque solid runs need
+    // no isolation: `rg` fully replaces the fill color, so consecutive items
+    // with the same fill are batched — color set once, then all their paths.
+    // Groups only ever span consecutive items, so paint order is unchanged.
     let mut content = String::new();
     let _ = writeln!(content, "0.000 0.000 0.000 rg"); // deterministic initial fill
+    let mut ext_open = false;
+    let mut run_fill: Option<&Fill> = None;
+    let mut cmds = Vec::new(); // scratch buffer reused across items
     if let Some(bg) = &scene.background {
-        let _ = writeln!(content, "q");
-        set_fill_color(bg, &grads, &mut alphas, &mut content);
-        let _ = writeln!(content, "0 0 {s:.3} {s:.3} re");
-        let _ = writeln!(content, "f");
-        let _ = writeln!(content, "Q");
+        begin_run(
+            bg,
+            &grads,
+            &mut alphas,
+            &mut run_fill,
+            &mut ext_open,
+            &mut content,
+        );
+        let _ = writeln!(content, "0 0 {s:.3} {s:.3} re f");
     }
     for item in &scene.items {
-        let _ = writeln!(content, "q");
-        set_fill_color(&item.fill, &grads, &mut alphas, &mut content);
-        emit_path(&item.shape, &fy, item.fill_rule, &mut content);
-        let _ = writeln!(content, "Q");
+        begin_run(
+            &item.fill,
+            &grads,
+            &mut alphas,
+            &mut run_fill,
+            &mut ext_open,
+            &mut content,
+        );
+        emit_path(&item.shape, &fy, item.fill_rule, &mut cmds, &mut content);
+    }
+    if ext_open {
+        content.push_str("Q\n");
     }
     if let Some(img) = &scene.logo {
         if logo.is_some() {
@@ -277,6 +293,41 @@ fn stitch_function(from: Rgba, to: Rgba) -> String {
     )
 }
 
+/// True when a fill sets graphics state that outlives its own painting
+/// (fill alpha via ExtGState, or the pattern colorspace) and therefore
+/// must run inside an isolated `q … Q` block.
+fn needs_isolation(fill: &Fill) -> bool {
+    match fill {
+        Fill::Solid(c) => c.a != 255,
+        _ => true, // gradient pattern: /Pattern cs … scn
+    }
+}
+
+/// Start a fill run: close any open isolated block, open a new one when the
+/// fill carries extended state, and set the color (once per run).
+fn begin_run<'a>(
+    fill: &'a Fill,
+    grads: &[&Fill],
+    alphas: &mut Vec<f32>,
+    run_fill: &mut Option<&'a Fill>,
+    ext_open: &mut bool,
+    content: &mut String,
+) {
+    if *run_fill == Some(fill) {
+        return;
+    }
+    if *ext_open {
+        content.push_str("Q\n");
+        *ext_open = false;
+    }
+    if needs_isolation(fill) {
+        content.push_str("q\n");
+        *ext_open = true;
+    }
+    set_fill_color(fill, grads, alphas, content);
+    *run_fill = Some(fill);
+}
+
 /// Emit the fill-color operator for one fill (and intern its alpha).
 fn set_fill_color(fill: &Fill, grads: &[&Fill], alphas: &mut Vec<f32>, out: &mut String) {
     match fill {
@@ -315,8 +366,15 @@ fn intern_alpha(alphas: &mut Vec<f32>, a: f32) -> usize {
 }
 
 /// Emit path construction operators plus the fill operator for `rule`.
-fn emit_path(shape: &Shape, fy: &impl Fn(f32) -> f32, rule: FillRule, out: &mut String) {
-    for cmd in to_path(shape) {
+fn emit_path(
+    shape: &Shape,
+    fy: &impl Fn(f32) -> f32,
+    rule: FillRule,
+    cmds: &mut Vec<PathCmd>,
+    out: &mut String,
+) {
+    to_path_into(shape, cmds);
+    for cmd in cmds.iter().copied() {
         match cmd {
             PathCmd::Move(x, y) => {
                 let _ = writeln!(out, "{x:.3} {:.3} m", fy(y));

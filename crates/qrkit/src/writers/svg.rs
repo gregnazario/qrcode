@@ -1,7 +1,7 @@
 //! SVG serialization of a VectorScene.
 
 use super::common::{collect_gradients, linear_endpoints};
-use crate::render::to_path;
+use crate::render::to_path_into;
 use crate::scene::{EmbeddedImage, Fill, FillRule, PathCmd, Shape, VectorScene};
 use base64::Engine as _;
 use std::fmt::Write as _;
@@ -9,7 +9,7 @@ use std::fmt::Write as _;
 pub fn write(scene: &VectorScene) -> Vec<u8> {
     let s = scene.size;
     let mut defs = String::new();
-    let mut body = String::new();
+    let mut body = String::with_capacity(scene.items.len() * 48 + 256);
 
     let mut all_fills: Vec<&Fill> = scene.background.iter().collect();
     all_fills.extend(scene.items.iter().map(|i| &i.fill));
@@ -27,18 +27,33 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
             fill_attrs(bg, &grads)
         );
     }
+    // Consecutive items sharing a fill are wrapped in one <g fill=...> group:
+    // a QR's modules form long runs of the same fill, so the per-path fill
+    // attribute collapses to one per run. Groups open/close around
+    // consecutive items only, so paint order is unchanged.
+    let mut grouped_fill: Option<&Fill> = None;
+    let mut cmds = Vec::new(); // scratch buffer reused across items
     for item in &scene.items {
-        let d = path_d(&item.shape);
-        let _ = writeln!(
-            body,
-            r#"<path d="{d}"{} {}/>"#,
-            if item.fill_rule == FillRule::EvenOdd {
-                r#" fill-rule="evenodd""#
-            } else {
-                ""
-            },
-            fill_attrs(&item.fill, &grads)
-        );
+        if grouped_fill != Some(&item.fill) {
+            if grouped_fill.is_some() {
+                body.push_str("</g>\n");
+            }
+            body.push_str("<g ");
+            body.push_str(&fill_attrs(&item.fill, &grads));
+            body.push_str(">\n");
+            grouped_fill = Some(&item.fill);
+        }
+        let rule_attr = if item.fill_rule == FillRule::EvenOdd {
+            r#" fill-rule="evenodd""#
+        } else {
+            ""
+        };
+        let _ = write!(body, "<path d=\"");
+        let _ = write!(body, "{}", path_d(&item.shape, &mut cmds));
+        let _ = writeln!(body, "\"{rule_attr}/>");
+    }
+    if grouped_fill.is_some() {
+        body.push_str("</g>\n");
     }
     if let Some(img) = &scene.logo {
         let _ = writeln!(
@@ -129,32 +144,26 @@ fn write_gradient_def(id: usize, fill: &Fill, size: f32, defs: &mut String) {
     }
 }
 
-fn path_d(shape: &Shape) -> String {
+fn path_d(shape: &Shape, cmds: &mut Vec<PathCmd>) -> String {
     let mut d = String::new();
-    for cmd in to_path(shape) {
+    to_path_into(shape, cmds);
+    for cmd in cmds.iter().copied() {
         match cmd {
             PathCmd::Move(x, y) => {
-                let _ = write!(d, "M {} {} ", f(x), f(y));
+                let _ = write!(d, "M {x:.3} {y:.3} ");
             }
             PathCmd::Line(x, y) => {
-                let _ = write!(d, "L {} {} ", f(x), f(y));
+                let _ = write!(d, "L {x:.3} {y:.3} ");
             }
             PathCmd::Cubic(a, b, c, e, g, h) => {
-                let _ = write!(
-                    d,
-                    "C {} {} {} {} {} {} ",
-                    f(a),
-                    f(b),
-                    f(c),
-                    f(e),
-                    f(g),
-                    f(h)
-                );
+                let _ = write!(d, "C {a:.3} {b:.3} {c:.3} {e:.3} {g:.3} {h:.3} ");
             }
             PathCmd::Close => d.push_str("Z "),
         }
     }
-    d.trim_end().to_string()
+    // Drop the trailing separator in place — no second allocation.
+    d.truncate(d.trim_end().len());
+    d
 }
 
 fn data_uri(img: &EmbeddedImage) -> String {

@@ -3,9 +3,9 @@
 //! EPS has no alpha: every color is pre-blended against the effective
 //! background (scene background if solid, else white) before writing.
 
-use super::common::linear_endpoints;
+use super::common::{collect_gradients, linear_endpoints};
 use crate::logo::decode_rgba;
-use crate::render::to_path;
+use crate::render::to_path_into;
 use crate::scene::{EmbeddedImage, Fill, FillRule, PathCmd, Rgba, SceneItem, Shape, VectorScene};
 use std::fmt::Write as _;
 
@@ -19,6 +19,14 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
     };
     let blend = |c: &Rgba| blend_over(*c, bg);
 
+    // Unique gradients used by the background or items; each is emitted once
+    // as a named dictionary in the prologue (QKS0, QKS1, ...) and referenced
+    // per item — a gradient scene paints hundreds of items through the same
+    // dict, so inlining it per item would dominate the file size.
+    let mut all_fills: Vec<&Fill> = scene.background.iter().collect();
+    all_fills.extend(scene.items.iter().map(|i| &i.fill));
+    let grads = collect_gradients(all_fills.into_iter());
+
     let mut out = String::new();
     let _ = writeln!(out, "%!PS-Adobe-3.0 EPSF-3.0");
     let _ = writeln!(
@@ -30,6 +38,32 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
     let _ = writeln!(out, "%%Creator: qrkit");
     let _ = writeln!(out, "%%LanguageLevel: 3");
     let _ = writeln!(out, "%%EndComments");
+    for (i, g) in grads.iter().enumerate() {
+        let (from, to) = match **g {
+            Fill::LinearGradient { from, to, .. } | Fill::RadialGradient { from, to } => {
+                (blend(&from), blend(&to))
+            }
+            Fill::Solid(_) => unreachable!("collect_gradients skips solid fills"),
+        };
+        let shading = match **g {
+            Fill::LinearGradient { angle_deg, .. } => {
+                let ((x0, y0), (x1, y1)) = linear_endpoints(s, angle_deg);
+                format!(
+                    "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [{:.3} {:.3} {:.3} {:.3}] /Function {} /Extend [true true] >>",
+                    x0, fy(y0), x1, fy(y1), ps_function(&from, &to)
+                )
+            }
+            Fill::RadialGradient { .. } => {
+                let c = s / 2.0;
+                format!(
+                    "<< /ShadingType 3 /ColorSpace /DeviceRGB /Coords [{:.3} {:.3} 0 {:.3} {:.3} {:.3}] /Function {} /Extend [true true] >>",
+                    c, fy(c), c, fy(c), c, ps_function(&from, &to)
+                )
+            }
+            Fill::Solid(_) => unreachable!(),
+        };
+        let _ = writeln!(out, "/QKS{i} {shading} def");
+    }
 
     if let Some(Fill::Solid(c)) = &scene.background {
         // The backdrop for the background itself is white paper, not the
@@ -52,8 +86,11 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
         }
     };
 
+    let grad_index = |fill: &Fill| -> Option<usize> { grads.iter().position(|g| **g == *fill) };
+
+    let mut cmds = Vec::new(); // scratch buffer reused across items
     for item in &scene.items {
-        emit_path(&item.shape, &fy, &mut out);
+        emit_path(&item.shape, &fy, &mut cmds, &mut out);
         match &item.fill {
             Fill::Solid(c) => {
                 set_color(&blend(c), &mut out);
@@ -66,37 +103,10 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
                 };
                 let _ = writeln!(out, " {op}");
             }
-            Fill::LinearGradient {
-                from,
-                to,
-                angle_deg,
-            } => {
-                let ((x0, y0), (x1, y1)) = linear_endpoints(s, *angle_deg);
+            g @ (Fill::LinearGradient { .. } | Fill::RadialGradient { .. }) => {
+                let i = grad_index(g).expect("gradient collected");
                 let _ = writeln!(out, " gsave {}", clip_op(item));
-                let _ = writeln!(
-                    out,
-                    "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [{:.3} {:.3} {:.3} {:.3}] /Function {} /Extend [true true] >> shfill",
-                    x0,
-                    fy(y0),
-                    x1,
-                    fy(y1),
-                    ps_function(&blend(from), &blend(to))
-                );
-                let _ = writeln!(out, "grestore");
-            }
-            Fill::RadialGradient { from, to } => {
-                let c = s / 2.0;
-                let _ = writeln!(out, " gsave {}", clip_op(item));
-                let _ = writeln!(
-                    out,
-                    "<< /ShadingType 3 /ColorSpace /DeviceRGB /Coords [{:.3} {:.3} 0 {:.3} {:.3} {:.3}] /Function {} /Extend [true true] >> shfill",
-                    c,
-                    fy(c),
-                    c,
-                    fy(c),
-                    c, // end radius matches PDF/SVG (full half-size)
-                    ps_function(&blend(from), &blend(to))
-                );
+                let _ = writeln!(out, "QKS{i} shfill");
                 let _ = writeln!(out, "grestore");
             }
         }
@@ -153,9 +163,10 @@ fn ps_function(from: &Rgba, to: &Rgba) -> String {
     )
 }
 
-fn emit_path(shape: &Shape, fy: &impl Fn(f32) -> f32, out: &mut String) {
+fn emit_path(shape: &Shape, fy: &impl Fn(f32) -> f32, cmds: &mut Vec<PathCmd>, out: &mut String) {
     out.push_str("newpath\n");
-    for cmd in to_path(shape) {
+    to_path_into(shape, cmds);
+    for cmd in cmds.iter().copied() {
         match cmd {
             PathCmd::Move(x, y) => {
                 let _ = writeln!(out, "{:.3} {:.3} moveto", x, fy(y));

@@ -36,7 +36,7 @@ fn pdf_parses_with_lopdf() {
 fn pdf_has_fill_and_evenodd_ops() {
     let bytes = pdf::write(&simple_scene());
     let raw = String::from_utf8_lossy(&bytes);
-    assert!(raw.contains(" re\n") || raw.contains(" re\r"));
+    assert!(raw.contains(" re f\n")); // background rect fill (batched run op)
     assert!(raw.contains("f*\n")); // even-odd eye rings
                                    // Brief said `contains(" 0 0 m")` "(format may vary; assert 'm' op
                                    // exists)". No scene path point maps to PDF (0,0) — the 4-module margin
@@ -73,10 +73,12 @@ fn builder_to_pdf_matches_writer() {
 }
 
 #[test]
-fn pdf_isolates_graphics_state_per_item() {
-    // Translucent background over default opaque black modules. Before
-    // per-item q/Q isolation the background's `/A0 gs` (ca 0.502) leaked
-    // into every later fill, dimming the modules in PDF output.
+fn pdf_isolates_extended_graphics_state_runs() {
+    // Translucent background over default opaque black modules. Before run
+    // isolation the background's `/A0 gs` (ca 0.502) leaked into every later
+    // fill, dimming the modules in PDF output. Runs that carry extended
+    // state (gs alpha, pattern colorspace) are wrapped in q…Q; opaque solid
+    // runs need no wrapper because `rg` fully replaces the fill color.
     let mut scene = simple_scene();
     scene.background = Some(qrkit::scene::Fill::Solid(qrkit::scene::Rgba {
         r: 0,
@@ -101,28 +103,52 @@ fn pdf_isolates_graphics_state_per_item() {
     let content = String::from_utf8(stream.content.clone()).expect("uncompressed stream");
     let tokens: Vec<&str> = content.split_whitespace().collect();
 
-    // Balanced q/Q nesting, and one pair per background + per scene item
-    // (the logo `Do`, when present, brings its own pair).
+    // Balanced q/Q nesting.
     let q_count = tokens.iter().filter(|t| **t == "q").count();
     let big_q = tokens.iter().filter(|t| **t == "Q").count();
     assert_eq!(q_count, big_q, "unbalanced q/Q in:\n{content}");
-    assert!(
-        q_count > item_count,
-        "expected >= {} q blocks (background + {item_count} items), got {q_count}",
-        item_count + 1
-    );
 
-    // Every fill operator must execute inside a q…Q block (depth >= 1), so
-    // no fill can inherit a leaked `/ca` or pattern colorspace.
+    // Every extended-state operator (`gs` ExtGState apply, `scn` pattern
+    // fill) must execute inside a q…Q block (depth >= 1), so its state can
+    // never leak into later painting.
     let mut depth: i64 = 0;
-    let mut fills_outside = 0usize;
-    for tok in tokens {
-        match tok {
+    let mut ext_outside = 0usize;
+    for tok in &tokens {
+        match *tok {
             "q" => depth += 1,
             "Q" => depth -= 1,
-            "f" | "f*" if depth < 1 => fills_outside += 1,
+            "gs" | "scn" if depth < 1 => ext_outside += 1,
             _ => {}
         }
     }
-    assert_eq!(fills_outside, 0, "fill operator outside any q…Q block");
+    assert_eq!(
+        ext_outside, 0,
+        "extended-state operator outside any q…Q block"
+    );
+
+    // The translucent background run must be closed (Q) before the opaque
+    // module fill is set — the exact sequence the original leak broke. (The
+    // stream's initial deterministic rg line precedes the bg run, so search
+    // for the module fill only after the closing Q.)
+    let bg_gs = content.find("/A0 gs").expect("bg gs op");
+    let closing_q = content[bg_gs..]
+        .find('Q')
+        .map(|i| bg_gs + i)
+        .expect("Q after bg gs");
+    let module_rg = content[closing_q..]
+        .find("0.000 0.000 0.000 rg")
+        .map(|i| closing_q + i)
+        .expect("opaque module fill after bg run");
+    assert!(
+        closing_q < module_rg,
+        "bg run must be closed before opaque fill:\n{content}"
+    );
+
+    // Batching sanity: one color-set per run, not per item — the module run
+    // sets its rg exactly once for the whole opaque run.
+    let rg_count = content.matches(" rg").count();
+    assert!(
+        rg_count <= 3,
+        "expected run-batched color sets, got {rg_count}"
+    );
 }
