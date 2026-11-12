@@ -33,7 +33,8 @@ pub struct Cli {
     pub format: Option<String>,
 
     /// Pixels per module for raster formats (png/kitty/iterm/sixel; default 24).
-    #[arg(long, global = true, default_value_t = 24)]
+    #[arg(long, global = true, default_value_t = 24,
+          value_parser = clap::value_parser!(u32).range(1..=256))]
     pub px: u32,
 
     /// Error correction: low|medium|quartile|high (default quartile).
@@ -412,7 +413,7 @@ pub fn output_format(cli: &Cli) -> Result<&'static str, Error> {
             "svg" => Ok("svg"),
             "pdf" => Ok("pdf"),
             "eps" => Ok("eps"),
-            "term" => Ok("term"),
+            "term" | "ansi" | "txt" => Ok("term"),
             "png" => Ok("png"),
             "kitty" => Ok("kitty"),
             "iterm" => Ok("iterm"),
@@ -431,7 +432,8 @@ pub fn output_format(cli: &Cli) -> Result<&'static str, Error> {
             Some("png") => Ok("png"),
             Some("six") | Some("sixel") => Ok("sixel"),
             _ => Err(Error::InvalidStyle(
-                "cannot infer format from extension; use --format".into(),
+                "cannot infer format from extension; use --format svg|pdf|eps|term|png|kitty|iterm|sixel|auto"
+                    .into(),
             )),
         };
     }

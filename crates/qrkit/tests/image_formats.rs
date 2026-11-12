@@ -47,8 +47,8 @@ fn kitty_payload_is_chunked_png() {
     let bytes = kitty::write(&scene().scene, 8); // small px keeps chunks few
     let s = String::from_utf8(bytes.to_vec()).unwrap();
     assert!(
-        s.starts_with("\x1b_Ga=d,d=i,i=31\x1b\\\x1b_Ga=d"),
-        "delete-first framing"
+        s.starts_with("\x1b_Ga=d,d=i,i=31,q=2\x1b\\"),
+        "delete-first framing (single, response-suppressed)"
     );
     // concatenate all payload segments after ';'
     let mut b64 = String::new();
@@ -269,4 +269,32 @@ fn term_auto_detection_prefers_protocols() {
     assert_eq!(it_lc, TermImage::Iterm);
     let plain = detect_with(&|_| None);
     assert_eq!(plain, TermImage::AnsiBlocks);
+}
+
+#[test]
+fn kitty_single_chunk_transmission_terminates() {
+    // Small px keeps the base64 PNG under one 4096-byte chunk; the
+    // transmission MUST still end with a final m=0 chunk or kitty buffers
+    // it forever and never displays the image.
+    let bytes = kitty::write(&scene().scene, 4);
+    let s = String::from_utf8(bytes.to_vec()).unwrap();
+    let chunks: Vec<&str> = s
+        .split("\x1b\\")
+        .filter(|c| c.starts_with("\x1b_G") && c.contains(';'))
+        .collect();
+    assert!(!chunks.is_empty());
+    let last = chunks.last().unwrap();
+    assert!(
+        last.contains("m=0") || (!last.contains("m=1") && last.contains("a=T")),
+        "final chunk must terminate the transmission (m=0): {last:?}"
+    );
+    // and every m=1 chunk implies a following chunk
+    for (i, c) in chunks.iter().enumerate() {
+        if c.contains("m=1") {
+            assert!(
+                i + 1 < chunks.len(),
+                "m=1 chunk at {i} is never followed by a terminator"
+            );
+        }
+    }
 }

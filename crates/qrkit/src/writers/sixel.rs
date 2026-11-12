@@ -2,8 +2,9 @@
 //!
 //! Pixels are quantized to ≤256 colors (uniform 8×8×4 RGB buckets — QR
 //! scenes are few-colored, gradients included) and emitted as six-row
-//! bands of sixel characters with RLE compression. Terminals: xterm
-//! (`-ti vt340`), foot, WezTerm, mintty, Alacritty (recent), others.
+//! bands of sixel characters with RLE compression. Sixel has no alpha, so
+//! translucent pixels composite over white. Terminals: xterm (`-ti
+//! vt340`), foot, WezTerm, mintty, Windows Terminal (1.22+), others.
 
 use super::raster::rasterize;
 use crate::scene::VectorScene;
@@ -12,7 +13,18 @@ use std::fmt::Write as _;
 /// Encode a scene as sixel graphics at `px_per_module`.
 pub fn write(scene: &VectorScene, px_per_module: u32) -> Vec<u8> {
     let pm = rasterize(scene, px_per_module);
-    encode(pm.data(), pm.width() as usize, pm.height() as usize)
+    // Demultiply (tiny-skia stores premultiplied) and composite over white.
+    let opaque: Vec<u8> = pm
+        .pixels()
+        .iter()
+        .flat_map(|p| {
+            let c = p.demultiply(); // ColorU8: straight u8 components
+            let a = c.alpha() as f32 / 255.0;
+            let over = |v: u8| ((v as f32 / 255.0 * a + (1.0 - a)) * 255.0).round() as u8;
+            [over(c.red()), over(c.green()), over(c.blue()), 255]
+        })
+        .collect();
+    encode(&opaque, pm.width() as usize, pm.height() as usize)
 }
 
 /// Quantize `rgba` (w×h, row-major) and encode as a sixel byte stream.
@@ -45,19 +57,22 @@ pub fn encode(rgba: &[u8], w: usize, h: usize) -> Vec<u8> {
         let _ = write!(out, "#{i};2;{};{};{}", s(r), s(g), s(b));
     }
     // ---- six-row bands ----
+    // One linear pass per band: collect which color ids are present.
     let mut y0 = 0;
     while y0 < h {
         let rows = (h - y0).min(6);
+        let mut present = vec![false; palette.len()];
+        for y in y0..y0 + rows {
+            for x in 0..w {
+                present[idx[y * w + x] as usize] = true;
+            }
+        }
         let mut first_color = true;
-        for id in 0..palette.len() as u16 {
-            // Does this color appear anywhere in the band?
-            let present = (0..rows).any(|r| {
-                let y = y0 + r;
-                (0..w).any(|x| idx[y * w + x] == id)
-            });
-            if !present {
+        for (id, here) in present.iter().enumerate() {
+            if !*here {
                 continue;
             }
+            let id = id as u16;
             if first_color {
                 first_color = false;
             } else {
