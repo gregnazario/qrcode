@@ -76,13 +76,23 @@
     </div>
     <div id="qr"></div>
     <div id="downloads">
-      <button data-fmt="svg">Download SVG</button>
-      <button data-fmt="pdf">Download PDF</button>
-      <button data-fmt="eps">Download EPS</button>
-      <button data-fmt="png">Download PNG</button>
-      <button type="button" id="copy-svg">Copy SVG</button>
-      <button type="button" id="copy-png">Copy PNG</button>
-      <button type="button" id="copy-link" title="Copy a permalink to this exact QR and style">Copy link</button>
+      <label class="dl-group">Download
+        <select id="dl-format" title="Output format">
+          <option value="svg" selected>SVG</option>
+          <option value="pdf">PDF</option>
+          <option value="eps">EPS</option>
+          <option value="png">PNG</option>
+        </select>
+      </label>
+      <button type="button" id="dl-btn">Save file</button>
+      <label class="dl-group">Copy
+        <select id="copy-format" title="What to copy">
+          <option value="svg" selected>SVG</option>
+          <option value="png">PNG image</option>
+          <option value="link" title="A permalink to this exact QR and style">Share link</option>
+        </select>
+      </label>
+      <button type="button" id="copy-btn">Copy</button>
       <label class="check" title="PNG resolution: pixels per QR module (24 is crisp for screens)">
         px/module <input type="number" id="px-per-module" value="24" min="1" max="256" style="width:4.5rem"/>
       </label>
