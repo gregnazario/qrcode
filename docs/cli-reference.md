@@ -50,6 +50,8 @@ Every subcommand accepts all global options.
 | `vcard` | `--name` (required) `--org` `--title` `--phone` (repeatable) `--email` (repeatable) `--url` `--address` `--note` |
 | `geo` | `--lat` `--lon` |
 | `calendar` | `--title` `--start` `--end` (`YYYYMMDDTHHMMSSZ`) `--location` `--description` |
+| `completions <SHELL>` | `bash` `zsh` `fish` `elvish` `powershell` — prints a completion script |
+| `man` | prints a man page (ROFF): `qrkit man > qrkit.1` |
 
 Validation is eager — bad input (malformed email, out-of-range coordinates,
 inverted dates, unknown enums) exits 1 with `error: …` before anything is

@@ -60,6 +60,16 @@ impl Matrix {
         self.code.error_correction_level()
     }
 
+    /// Short name of the ECC level ("L", "M", "Q", "H").
+    pub fn ecc_name(&self) -> &'static str {
+        match self.ecc() {
+            qrcodegen::QrCodeEcc::Low => "L",
+            qrcodegen::QrCodeEcc::Medium => "M",
+            qrcodegen::QrCodeEcc::Quartile => "Q",
+            qrcodegen::QrCodeEcc::High => "H",
+        }
+    }
+
     pub fn get(&self, x: i32, y: i32) -> bool {
         self.code.get_module(x, y)
     }

@@ -1,4 +1,4 @@
-import init, { generate } from "./pkg/qrkit_wasm.js";
+import init, { generate, verify_scans } from "./pkg/qrkit_wasm.js";
 
 const TYPE_FIELDS = {
   text:   [{ name: "text", label: "Text", type: "textarea", value: "Hello, vector world" }],
@@ -28,13 +28,24 @@ const TYPE_FIELDS = {
              { name: "description", label: "Description", type: "text", value: "" }],
 };
 
+// One-click style presets (fill, gradient, module + eye shapes). Everything
+// else (logo, ecc, margin) is left as-is; "Classic" resets to defaults.
+const PRESETS = {
+  classic: { fg: "#000000", bg: "#ffffff", gradient: "", gradientTo: "#42a5f5", angle: 45,
+             shape: "square", dotRadius: 0.5, eye: "square", eyeAuto: true, eyeColor: "#000000" },
+  ocean:   { fg: "#0d47a1", bg: "#ffffff", gradient: "linear", gradientTo: "#42a5f5", angle: 45,
+             shape: "rounded", dotRadius: 0.5, eye: "circle", eyeAuto: true, eyeColor: "#000000" },
+  sunset:  { fg: "#ff6f00", bg: "#ffffff", gradient: "radial", gradientTo: "#f50057", angle: 45,
+             shape: "dots", dotRadius: 0.5, eye: "rounded", eyeAuto: true, eyeColor: "#000000" },
+  forest:  { fg: "#1b5e20", bg: "#ffffff", gradient: "linear", gradientTo: "#81c784", angle: 90,
+             shape: "classy", dotRadius: 0.5, eye: "leaf", eyeAuto: true, eyeColor: "#000000" },
+  berry:   { fg: "#880e4f", bg: "#ffffff", gradient: "linear", gradientTo: "#ff5252", angle: 25,
+             shape: "dots", dotRadius: 0.5, eye: "circle", eyeAuto: false, eyeColor: "#880e4f" },
+};
+
 const $ = (id) => document.getElementById(id);
 let logoBase64 = null;
-
-// The clear button only makes sense while a logo is actually loaded.
-function syncLogoClear() {
-  $("logo-clear").hidden = !logoBase64;
-}
+let verifyTimer = null;
 
 function renderTypeSelect() {
   $("type").innerHTML = Object.keys(TYPE_FIELDS)
@@ -98,8 +109,6 @@ function collectStyle() {
     decorativeEyes: $("eye-decorative").checked || undefined,
     // PNG resolution (ignored by the vector formats).
     px: parseInt($("px-per-module").value, 10) || 24,
-    ecc: $("ecc").value,
-    margin: parseInt($("margin").value, 10),
   };
   if (logoBase64) {
     style.logo = { dataBase64: logoBase64, sizeRatio: parseFloat($("logo-size").value) };
@@ -118,24 +127,109 @@ function update() {
     out = generate(JSON.stringify(config), "svg");
   } catch (e) {
     showError(e);
+    $("scan-badge").className = "";
+    $("scan-badge").textContent = "";
+    scheduleVerify(null);
     return;
   }
   $("qr").innerHTML = out.svg || "";
+  $("info-badge").textContent = out.info || "";
   $("warnings").innerHTML = (out.warnings || []).map((w) => `<p class="warn">${w}</p>`).join("");
+  syncPermalink(config);
+  scheduleVerify(config);
 }
 
-function download(fmt) {
+// ---- live scannability badge -------------------------------------------
+function scheduleVerify(config) {
+  clearTimeout(verifyTimer);
+  if (!config) return;
+  $("scan-badge").className = "pending";
+  $("scan-badge").textContent = "checking…";
+  verifyTimer = setTimeout(() => {
+    let ok = false;
+    try {
+      ok = verify_scans(JSON.stringify(config));
+    } catch {
+      ok = false;
+    }
+    $("scan-badge").className = ok ? "ok" : "bad";
+    $("scan-badge").textContent = ok ? "✓ scans cleanly" : "✗ does not decode";
+  }, 350);
+}
+
+// ---- permalinks ----------------------------------------------------------
+// Content + style live in the URL hash (logo bytes excluded — too large).
+function syncPermalink(config) {
+  const shareable = { ...config, style: { ...config.style } };
+  delete shareable.style.logo;
+  const encoded = encodeURIComponent(JSON.stringify(shareable));
+  history.replaceState(null, "", `#${encoded}`);
+}
+
+function applyConfig(cfg) {
+  if (!cfg || !cfg.content || !TYPE_FIELDS[cfg.content.type]) return false;
+  $("type").value = cfg.content.type;
+  renderContentForm(cfg.content.type);
+  $("content-form").querySelectorAll("[data-field]").forEach((el) => {
+    const v = cfg.content[el.dataset.field];
+    if (v === undefined) return;
+    if (el.type === "checkbox") el.checked = !!v;
+    else el.value = Array.isArray(v) ? v.join(",") : v;
+  });
+  const s = cfg.style || {};
+  if (s.fg) $("fg").value = s.fg;
+  if (s.bg === "transparent") { $("bg-transparent").checked = true; }
+  else if (s.bg) { $("bg-transparent").checked = false; $("bg").value = s.bg; }
+  $("gradient").value = s.gradient || "";
+  if (s.gradientTo) $("gradient-to").value = s.gradientTo;
+  if (s.gradientAngle !== undefined) $("gradient-angle").value = s.gradientAngle;
+  if (s.shape) $("shape").value = s.shape;
+  if (s.dotRadius !== undefined) $("dot-radius").value = s.dotRadius;
+  if (s.eye) $("eye").value = s.eye;
+  const auto = s.eyeColor === undefined || s.eyeColor === null;
+  $("eye-auto").checked = auto;
+  $("eye-color").disabled = auto;
+  if (s.eyeColor) $("eye-color").value = s.eyeColor;
+  $("eye-decorative").checked = !!s.decorativeEyes;
+  if (s.margin !== undefined) $("margin").value = s.margin;
+  if (s.ecc) $("ecc").value = s.ecc;
+  return true;
+}
+
+// ---- downloads & clipboard ----------------------------------------------
+function slug(pieces) {
+  const s = pieces
+    .filter(Boolean).join("-")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return s || "qr";
+}
+
+function smartBase() {
+  const content = collectContent();
+  const primary = content.text || content.url || content.ssid || content.name ||
+    content.title || content.number || content.to || content.lat || "qr";
+  return slug([content.type, String(primary)]);
+}
+
+function generateBytes(fmt) {
   const config = { content: collectContent(), style: collectStyle() };
   let out;
   try {
     out = generate(JSON.stringify(config), fmt);
   } catch (e) {
     showError(e);
-    return;
+    return null;
   }
-  const bytes = fmt === "svg"
-    ? new TextEncoder().encode(out.svg)
-    : new Uint8Array(out[fmt]);
+  if (fmt === "svg") return new TextEncoder().encode(out.svg);
+  return new Uint8Array(out[fmt]);
+}
+
+function download(fmt) {
+  const bytes = generateBytes(fmt);
+  if (!bytes) return;
   const blob = new Blob([bytes], { type: {
     svg: "image/svg+xml",
     pdf: "application/pdf",
@@ -144,15 +238,92 @@ function download(fmt) {
   }[fmt] });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `qr.${fmt}`;
+  a.download = `${smartBase()}.${fmt}`;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function flash(btn, text) {
+  const old = btn.textContent;
+  btn.textContent = text;
+  setTimeout(() => { btn.textContent = old; }, 1200);
+}
+
+async function copySvg(btn) {
+  const bytes = generateBytes("svg");
+  if (!bytes) return;
+  try {
+    await navigator.clipboard.writeText(new TextDecoder().decode(bytes));
+    flash(btn, "Copied ✓");
+  } catch {
+    flash(btn, "Copy blocked");
+  }
+}
+
+async function copyPng(btn) {
+  const bytes = generateBytes("png");
+  if (!bytes) return;
+  try {
+    const blob = new Blob([bytes], { type: "image/png" });
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    flash(btn, "Copied ✓");
+  } catch {
+    // Firefox and some contexts don't support image clipboard writes.
+    flash(btn, "Not supported — downloading");
+    download("png");
+  }
+}
+
+async function copyLink(btn) {
+  try {
+    await navigator.clipboard.writeText(location.href);
+    flash(btn, "Link copied ✓");
+  } catch {
+    flash(btn, "Copy blocked");
+  }
+}
+
+// ---- presets --------------------------------------------------------------
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  $("fg").value = p.fg;
+  $("bg").value = p.bg;
+  $("bg-transparent").checked = false;
+  $("gradient").value = p.gradient;
+  $("gradient-to").value = p.gradientTo;
+  $("gradient-angle").value = p.angle;
+  $("shape").value = p.shape;
+  $("dot-radius").value = p.dotRadius;
+  $("eye").value = p.eye;
+  $("eye-auto").checked = p.eyeAuto;
+  $("eye-color").disabled = p.eyeAuto;
+  $("eye-color").value = p.eyeColor;
+  $("eye-decorative").checked = false;
+  update();
+}
+
+// ---- logo ------------------------------------------------------------------
+function loadLogoFile(file) {
+  if (!file) { logoBase64 = null; syncLogoClear(); update(); return; }
+  const r = new FileReader();
+  r.onerror = () => showError("could not read logo file");
+  r.onload = () => {
+    logoBase64 = r.result.split(",")[1];
+    update();
+  };
+  r.readAsDataURL(file);
+}
+
+function syncLogoClear() {
+  $("logo-clear").hidden = !logoBase64;
 }
 
 async function main() {
   await init();
   renderTypeSelect();
   renderContentForm("text");
+
   $("type").addEventListener("change", (e) => {
     renderContentForm(e.target.value);
     update();
@@ -171,17 +342,9 @@ async function main() {
   $("eye-auto").addEventListener("input", () => {
     $("eye-color").disabled = $("eye-auto").checked;
   });
-  $("logo").addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (!file) { logoBase64 = null; syncLogoClear(); update(); return; }
-    const dataUrl = await new Promise((res) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result);
-      r.readAsDataURL(file);
-    });
-    logoBase64 = dataUrl.split(",")[1];
+  $("logo").addEventListener("change", (e) => {
+    loadLogoFile(e.target.files[0]);
     syncLogoClear();
-    update();
   });
   // Remove an uploaded logo: drop the data, reset the file input, re-render.
   $("logo-clear").addEventListener("click", () => {
@@ -190,9 +353,44 @@ async function main() {
     syncLogoClear();
     update();
   });
-  document.querySelectorAll("#downloads button").forEach((b) =>
+
+  // Drag-and-drop a logo anywhere on the page.
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const file = [...(e.dataTransfer?.files || [])].find((f) => f.type.startsWith("image/"));
+    if (file) loadLogoFile(file);
+  });
+
+  // Presets.
+  const presetsRow = $("presets");
+  if (presetsRow) {
+    Object.keys(PRESETS).forEach((name) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "preset";
+      b.textContent = name;
+      b.addEventListener("click", () => applyPreset(name));
+      presetsRow.appendChild(b);
+    });
+  }
+
+  document.querySelectorAll("#downloads button[data-fmt]").forEach((b) =>
     b.addEventListener("click", () => download(b.dataset.fmt)));
-  update();
+  $("copy-svg").addEventListener("click", (e) => copySvg(e.currentTarget));
+  $("copy-png").addEventListener("click", (e) => copyPng(e.currentTarget));
+  $("copy-link").addEventListener("click", (e) => copyLink(e.currentTarget));
+
+  // Restore from a permalink (#...), if present.
+  let restored = false;
+  if (location.hash.length > 1) {
+    try {
+      restored = applyConfig(JSON.parse(decodeURIComponent(location.hash.slice(1))));
+    } catch {
+      restored = false; // malformed hash — fall through to defaults
+    }
+  }
+  if (!restored) update();
 }
 
 main();

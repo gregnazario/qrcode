@@ -105,3 +105,16 @@ fn decorative_eyes_flag_maps_to_style() {
             .decorative_eyes
     );
 }
+
+#[test]
+fn completions_and_man_generate() {
+    use qrkit_cli::args::{completions_for, man_page};
+    let bash = String::from_utf8(completions_for(clap_complete::Shell::Bash)).unwrap();
+    assert!(bash.contains("qrkit"), "bash script references the binary");
+    let fish = String::from_utf8(completions_for(clap_complete::Shell::Fish)).unwrap();
+    assert!(fish.contains("qrkit"));
+    let man = String::from_utf8(man_page().unwrap()).unwrap();
+    assert!(man.contains(".TH qrkit 1"), "man header");
+    // ROFF escapes hyphens in long flags ("decorative\-eyes").
+    assert!(man.contains("decorative"), "flags documented");
+}

@@ -17,6 +17,9 @@ wasm-bindgen.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 base64.workspace = true
+# default-features off: the `img` feature would pull the heavyweight image
+# crate into the wasm bundle; we feed grayscale pixels directly.
+rqrr = { workspace = true, default-features = false }
 
 [dev-dependencies]
 base64.workspace = true
