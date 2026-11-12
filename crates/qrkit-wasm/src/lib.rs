@@ -80,6 +80,7 @@ struct WStyle {
     gradient_angle: Option<f32>,
     eye_color: Option<String>,
     eye_inner_color: Option<String>,
+    decorative_eyes: Option<bool>,
     logo: Option<WLogo>,
 }
 
@@ -341,5 +342,6 @@ fn to_style(s: WStyle) -> Result<qrkit::style::StyleConfig, String> {
         .eye_fill(eye_fill)
         .eye_inner_fill(eye_inner)
         .background(bg)
+        .decorative_eyes(s.decorative_eyes.unwrap_or(false))
         .logo(logo))
 }

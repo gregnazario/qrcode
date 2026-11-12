@@ -104,3 +104,105 @@ fn logo_clears_center_modules_and_embeds() {
         }
     }
 }
+
+#[test]
+fn decorative_eyes_omit_tabs_and_nubs_and_use_bigger_radii() {
+    use qrkit::scene::{CornerRadii, Shape};
+    use qrkit::style::EyeShape;
+
+    let build = |decorative: bool| render_eye_scene(decorative, EyeShape::Circle);
+
+    // Safe mode: circle eyes carry 12 tab modules per eye (3 eyes = 36),
+    // each a 1x1 RoundedRect with uniform radius 0.2.
+    let safe = build(false);
+    let tabs = safe
+        .items
+        .iter()
+        .filter(|i| {
+            matches!(
+                i.shape,
+                Shape::RoundedRect {
+                    w: 1.0,
+                    h: 1.0,
+                    radii: CornerRadii {
+                        tl: 0.2,
+                        tr: 0.2,
+                        br: 0.2,
+                        bl: 0.2
+                    },
+                    ..
+                }
+            )
+        })
+        .count();
+    assert_eq!(tabs, 36, "safe circle eyes must paint 3x12 corner tabs");
+
+    // Decorative mode: no tabs at all.
+    let deco = build(true);
+    let tabs = deco
+        .items
+        .iter()
+        .filter(|i| {
+            matches!(
+                i.shape,
+                Shape::RoundedRect {
+                    w: 1.0,
+                    h: 1.0,
+                    radii: CornerRadii {
+                        tl: 0.2,
+                        tr: 0.2,
+                        br: 0.2,
+                        bl: 0.2
+                    },
+                    ..
+                }
+            )
+        })
+        .count();
+    assert_eq!(tabs, 0, "decorative circle eyes must not paint tabs");
+
+    // Decorative rounded eyes: outer radius 2.0, no 0.6 nubs. The ring is a
+    // Path whose first Move lands at x + outer_radius (margin 4), so that
+    // coordinate is the geometry probe.
+    let deco_rounded = render_eye_scene(true, EyeShape::Rounded);
+    let ring_starts_at = |scene: &qrkit::scene::VectorScene, x: f32| {
+        scene.items.iter().any(|i| {
+            matches!(
+                i.shape,
+                Shape::Path(ref cmds) if matches!(
+                    cmds.first(),
+                    Some(qrkit::scene::PathCmd::Move(mvx, 4.0)) if (*mvx - x).abs() < 1e-4
+                )
+            )
+        })
+    };
+    assert!(
+        ring_starts_at(&deco_rounded, 6.0),
+        "decorative rounded ring must start at x+2.0"
+    );
+    let nubs = deco_rounded
+        .items
+        .iter()
+        .filter(|i| matches!(i.shape, Shape::Rect { w: 0.6, h: 0.6, .. }))
+        .count();
+    assert_eq!(nubs, 0, "decorative rounded eyes must not paint nubs");
+
+    // Safe rounded eyes do have nubs (4 per eye = 12).
+    let safe_rounded = render_eye_scene(false, EyeShape::Rounded);
+    let nubs = safe_rounded
+        .items
+        .iter()
+        .filter(|i| matches!(i.shape, Shape::Rect { w: 0.6, h: 0.6, .. }))
+        .count();
+    assert_eq!(nubs, 12);
+}
+
+fn render_eye_scene(decorative: bool, eye: qrkit::style::EyeShape) -> qrkit::scene::VectorScene {
+    let m = Matrix::encode("https://example.com", Ecc::High, Version::Auto).unwrap();
+    render(
+        &m,
+        &StyleConfig::new()
+            .eye_shape(eye)
+            .decorative_eyes(decorative),
+    )
+}

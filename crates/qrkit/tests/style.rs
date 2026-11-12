@@ -58,3 +58,23 @@ fn validate_flags_bad_ranges() {
     s.logo = Some(logo);
     assert!(!s.validate().is_empty());
 }
+
+#[test]
+fn decorative_eyes_defaults_off_and_warns_when_on() {
+    let s = StyleConfig::new();
+    assert!(!s.decorative_eyes);
+    assert!(s.validate().is_empty());
+    let s = StyleConfig::new().decorative_eyes(true);
+    assert!(s.decorative_eyes);
+    assert!(s.validate().iter().any(|w| w.contains("decorative eyes")));
+}
+
+#[test]
+fn decorative_eyes_surfaces_via_builder() {
+    let img = qrkit::builder::QrBuilder::new(qrkit::content::Content::Text("decorative".into()))
+        .unwrap()
+        .style(StyleConfig::new().decorative_eyes(true))
+        .build()
+        .unwrap();
+    assert!(img.warnings.iter().any(|w| w.contains("decorative eyes")));
+}

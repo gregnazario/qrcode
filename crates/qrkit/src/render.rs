@@ -195,6 +195,10 @@ fn module_item(x: i32, y: i32, style: &StyleConfig) -> SceneItem {
 /// Rounded and Leaf eyes get small square corner nubs: decoders fit the
 /// capstone perspective from the ring's extreme corners, and restoring the
 /// true 7x7 corner extent keeps that fit exact.
+///
+/// `decorative_eyes` opts out of all decode-safety adaptation: the original
+/// bigger radii are used and no tabs/nubs are painted. The result looks
+/// cleaner but is explicitly not scanner-guaranteed (see StyleConfig docs).
 fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
     let margin = style.margin_modules as f32;
     let (x, y) = (ex as f32 + margin, ey as f32 + margin);
@@ -225,89 +229,183 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
                 h: 3.0,
             },
         ),
-        EyeShape::Rounded => (
-            Shape::RoundedRect {
-                x,
-                y,
-                w: 7.0,
-                h: 7.0,
-                radii: CornerRadii::all(1.5),
-            },
-            Shape::RoundedRect {
-                x: x + 1.0,
-                y: y + 1.0,
-                w: 5.0,
-                h: 5.0,
-                radii: CornerRadii::all(0.9),
-            },
-            Shape::RoundedRect {
-                x: x + 2.0,
-                y: y + 2.0,
-                w: 3.0,
-                h: 3.0,
-                radii: CornerRadii::all(0.6),
-            },
-        ),
-        EyeShape::Circle => (
-            Shape::Circle {
-                cx: x + 3.5,
-                cy: y + 3.5,
-                r: 3.5,
-            },
-            // Hole radius window: >= 2*sqrt(2) ~= 2.83 so the four light
-            // modules diagonal from each corner (whose centers lie at
-            // distance 2*sqrt(2) from the eye center, e.g. (3.5,3.5) to
-            // (1.5,1.5)) stay unpainted, and < 3.0 so the mid-edge dark
-            // border modules (centers at 3.0) stay painted.
-            Shape::Circle {
-                cx: x + 3.5,
-                cy: y + 3.5,
-                r: 2.9,
-            },
-            Shape::Circle {
-                cx: x + 3.5,
-                cy: y + 3.5,
-                r: 1.5,
-            },
-        ),
-        EyeShape::Leaf => (
-            Shape::RoundedRect {
-                x,
-                y,
-                w: 7.0,
-                h: 7.0,
-                radii: CornerRadii {
-                    tl: 1.5,
-                    tr: 0.0,
-                    br: 1.5,
-                    bl: 0.0,
-                },
-            },
-            Shape::RoundedRect {
-                x: x + 1.0,
-                y: y + 1.0,
-                w: 5.0,
-                h: 5.0,
-                radii: CornerRadii {
-                    tl: 0.9,
-                    tr: 0.0,
-                    br: 0.9,
-                    bl: 0.0,
-                },
-            },
-            Shape::RoundedRect {
-                x: x + 2.0,
-                y: y + 2.0,
-                w: 3.0,
-                h: 3.0,
-                radii: CornerRadii {
-                    tl: 0.6,
-                    tr: 0.0,
-                    br: 0.6,
-                    bl: 0.0,
-                },
-            },
-        ),
+        EyeShape::Rounded => {
+            if style.decorative_eyes {
+                (
+                    Shape::RoundedRect {
+                        x,
+                        y,
+                        w: 7.0,
+                        h: 7.0,
+                        radii: CornerRadii::all(2.0),
+                    },
+                    Shape::RoundedRect {
+                        x: x + 1.0,
+                        y: y + 1.0,
+                        w: 5.0,
+                        h: 5.0,
+                        radii: CornerRadii::all(1.25),
+                    },
+                    Shape::RoundedRect {
+                        x: x + 2.0,
+                        y: y + 2.0,
+                        w: 3.0,
+                        h: 3.0,
+                        radii: CornerRadii::all(0.75),
+                    },
+                )
+            } else {
+                (
+                    Shape::RoundedRect {
+                        x,
+                        y,
+                        w: 7.0,
+                        h: 7.0,
+                        radii: CornerRadii::all(1.5),
+                    },
+                    Shape::RoundedRect {
+                        x: x + 1.0,
+                        y: y + 1.0,
+                        w: 5.0,
+                        h: 5.0,
+                        radii: CornerRadii::all(0.9),
+                    },
+                    Shape::RoundedRect {
+                        x: x + 2.0,
+                        y: y + 2.0,
+                        w: 3.0,
+                        h: 3.0,
+                        radii: CornerRadii::all(0.6),
+                    },
+                )
+            }
+        }
+        EyeShape::Circle => {
+            if style.decorative_eyes {
+                // Classic thick ring: hole at 2.5 leaves a 1.0-wide band.
+                (
+                    Shape::Circle {
+                        cx: x + 3.5,
+                        cy: y + 3.5,
+                        r: 3.5,
+                    },
+                    Shape::Circle {
+                        cx: x + 3.5,
+                        cy: y + 3.5,
+                        r: 2.5,
+                    },
+                    Shape::Circle {
+                        cx: x + 3.5,
+                        cy: y + 3.5,
+                        r: 1.5,
+                    },
+                )
+            } else {
+                (
+                    Shape::Circle {
+                        cx: x + 3.5,
+                        cy: y + 3.5,
+                        r: 3.5,
+                    },
+                    // Hole radius window: >= 2*sqrt(2) ~= 2.83 so the four light
+                    // modules diagonal from each corner (whose centers lie at
+                    // distance 2*sqrt(2) from the eye center, e.g. (3.5,3.5) to
+                    // (1.5,1.5)) stay unpainted, and < 3.0 so the mid-edge dark
+                    // border modules (centers at 3.0) stay painted.
+                    Shape::Circle {
+                        cx: x + 3.5,
+                        cy: y + 3.5,
+                        r: 2.9,
+                    },
+                    Shape::Circle {
+                        cx: x + 3.5,
+                        cy: y + 3.5,
+                        r: 1.5,
+                    },
+                )
+            }
+        }
+        EyeShape::Leaf => {
+            if style.decorative_eyes {
+                (
+                    Shape::RoundedRect {
+                        x,
+                        y,
+                        w: 7.0,
+                        h: 7.0,
+                        radii: CornerRadii {
+                            tl: 3.0,
+                            tr: 0.0,
+                            br: 3.0,
+                            bl: 0.0,
+                        },
+                    },
+                    Shape::RoundedRect {
+                        x: x + 1.0,
+                        y: y + 1.0,
+                        w: 5.0,
+                        h: 5.0,
+                        radii: CornerRadii {
+                            tl: 2.0,
+                            tr: 0.0,
+                            br: 2.0,
+                            bl: 0.0,
+                        },
+                    },
+                    Shape::RoundedRect {
+                        x: x + 2.0,
+                        y: y + 2.0,
+                        w: 3.0,
+                        h: 3.0,
+                        radii: CornerRadii {
+                            tl: 1.5,
+                            tr: 0.0,
+                            br: 1.5,
+                            bl: 0.0,
+                        },
+                    },
+                )
+            } else {
+                (
+                    Shape::RoundedRect {
+                        x,
+                        y,
+                        w: 7.0,
+                        h: 7.0,
+                        radii: CornerRadii {
+                            tl: 1.5,
+                            tr: 0.0,
+                            br: 1.5,
+                            bl: 0.0,
+                        },
+                    },
+                    Shape::RoundedRect {
+                        x: x + 1.0,
+                        y: y + 1.0,
+                        w: 5.0,
+                        h: 5.0,
+                        radii: CornerRadii {
+                            tl: 0.9,
+                            tr: 0.0,
+                            br: 0.9,
+                            bl: 0.0,
+                        },
+                    },
+                    Shape::RoundedRect {
+                        x: x + 2.0,
+                        y: y + 2.0,
+                        w: 3.0,
+                        h: 3.0,
+                        radii: CornerRadii {
+                            tl: 0.6,
+                            tr: 0.0,
+                            br: 0.6,
+                            bl: 0.0,
+                        },
+                    },
+                )
+            }
+        }
     };
 
     // Ring = outer path + hole subpath, even-odd.
@@ -327,7 +425,7 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
     // both > 3.5. Paint an L of three 1x1 tabs at each corner so every dark
     // border module center is covered while the diagonal light modules stay
     // clear (they are inside the r=2.9 hole).
-    if matches!(style.eye_shape, EyeShape::Circle) {
+    if matches!(style.eye_shape, EyeShape::Circle) && !style.decorative_eyes {
         for (tx, ty) in CIRCLE_CORNER_TABS {
             items.push(SceneItem {
                 shape: Shape::RoundedRect {
@@ -350,10 +448,14 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
     // square nub at each rounded corner restores the true 7x7 corner extent
     // while keeping the rounded look. Square eyes are exact already; Circle
     // eyes are covered by the fuller corner tabs above.
-    let nubs: &[(f32, f32)] = match style.eye_shape {
-        EyeShape::Rounded => &[(0.0, 0.0), (6.4, 0.0), (6.4, 6.4), (0.0, 6.4)],
-        EyeShape::Leaf => &[(0.0, 0.0), (6.4, 6.4)], // only tl/br are rounded
-        EyeShape::Square | EyeShape::Circle => &[],
+    let nubs: &[(f32, f32)] = if style.decorative_eyes {
+        &[]
+    } else {
+        match style.eye_shape {
+            EyeShape::Rounded => &[(0.0, 0.0), (6.4, 0.0), (6.4, 6.4), (0.0, 6.4)],
+            EyeShape::Leaf => &[(0.0, 0.0), (6.4, 6.4)], // only tl/br are rounded
+            EyeShape::Square | EyeShape::Circle => &[],
+        }
     };
     for (nx, ny) in nubs {
         items.push(SceneItem {

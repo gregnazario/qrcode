@@ -20,6 +20,7 @@ fn cli_for(cmd: Commands) -> Cli {
         gradient_angle: 0.0,
         eye_color: None,
         eye_inner_color: None,
+        decorative_eyes: false,
         logo: None,
         logo_size: None,
         logo_padding: None,
@@ -88,4 +89,18 @@ fn bg_transparent_maps_to_none() {
     cli.bg = Some("transparent".into());
     let s = style_from_args(&cli).unwrap();
     assert_eq!(s.background, None);
+}
+
+#[test]
+fn decorative_eyes_flag_maps_to_style() {
+    let mut cli = cli_for(Commands::Text { text: "hi".into() });
+    cli.decorative_eyes = true;
+    let s = style_from_args(&cli).unwrap();
+    assert!(s.decorative_eyes);
+    assert!(s.validate().iter().any(|w| w.contains("decorative eyes")));
+    assert!(
+        !style_from_args(&cli_for(Commands::Text { text: "hi".into() }))
+            .unwrap()
+            .decorative_eyes
+    );
 }

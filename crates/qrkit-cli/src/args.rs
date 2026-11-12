@@ -82,6 +82,11 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub eye_inner_color: Option<String>,
 
+    /// Pure-shape eyes (bigger radii, no scanner-safety tabs/nubs).
+    /// Cleaner look, but strict readers may fail to decode the result.
+    #[arg(long, global = true)]
+    pub decorative_eyes: bool,
+
     /// PNG/JPEG logo file path.
     #[arg(long, global = true)]
     pub logo: Option<PathBuf>,
@@ -373,6 +378,7 @@ pub fn style_from_args(cli: &Cli) -> Result<StyleConfig, Error> {
         .eye_fill(eye_fill)
         .eye_inner_fill(eye_inner_fill)
         .background(background)
+        .decorative_eyes(cli.decorative_eyes)
         .logo(logo);
     if let (Some(l), Some(size)) = (&mut style.logo, cli.logo_size) {
         l.size_ratio = size;

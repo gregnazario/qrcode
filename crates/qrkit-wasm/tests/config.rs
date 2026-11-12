@@ -56,3 +56,15 @@ fn logo_warning_surfaces() {
     let (_, warnings) = render_to_bytes(&cfg, "svg").unwrap();
     assert!(warnings.iter().any(|w| w.contains("High")));
 }
+
+#[test]
+fn decorative_eyes_maps_and_warns() {
+    let cfg = r#"{"content": {"type": "text", "text": "deco"},
+                  "style": {"eye": "circle", "decorativeEyes": true}}"#;
+    let (bytes, warnings) = render_to_bytes(cfg, "svg").expect("generates");
+    assert!(bytes.unwrap().len() > 100);
+    assert!(warnings.iter().any(|w| w.contains("decorative eyes")));
+    // absent flag stays off
+    let (_, warnings) = render_to_bytes(CFG, "svg").unwrap();
+    assert!(!warnings.iter().any(|w| w.contains("decorative eyes")));
+}

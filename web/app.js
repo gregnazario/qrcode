@@ -95,6 +95,7 @@ function collectStyle() {
     eye: $("eye").value,
     // "auto" leaves eyeColor unset so the eyes follow fg / the gradient.
     eyeColor: $("eye-auto").checked ? undefined : $("eye-color").value,
+    decorativeEyes: $("eye-decorative").checked ? true : undefined,
     ecc: $("ecc").value,
     margin: parseInt($("margin").value, 10),
   };

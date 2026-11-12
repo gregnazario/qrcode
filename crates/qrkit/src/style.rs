@@ -67,6 +67,9 @@ pub struct StyleConfig {
     pub eye_inner_fill: Option<Fill>, // None -> follow module fill
     pub background: Option<Fill>,     // None -> transparent
     pub logo: Option<LogoConfig>,
+    /// Pure-shape eye geometry (bigger radii, no corner tabs/nubs).
+    /// Looks cleaner but finder corners are not scanner-guaranteed.
+    pub decorative_eyes: bool,
 }
 
 impl Default for StyleConfig {
@@ -90,6 +93,7 @@ impl StyleConfig {
             eye_inner_fill: None,
             background: Some(Fill::Solid(Rgba::WHITE)),
             logo: None,
+            decorative_eyes: false,
         }
     }
 
@@ -133,6 +137,10 @@ impl StyleConfig {
         self.logo = l;
         self
     }
+    pub fn decorative_eyes(mut self, d: bool) -> Self {
+        self.decorative_eyes = d;
+        self
+    }
 
     /// ECC actually used for encoding: a logo forces High (spec).
     pub fn effective_ecc(&self) -> Ecc {
@@ -171,6 +179,12 @@ impl StyleConfig {
                         .to_string(),
                 );
             }
+        }
+        if self.decorative_eyes {
+            warnings.push(
+                "decorative eyes: finder corners are not scanner-guaranteed; strict readers may fail to decode"
+                    .to_string(),
+            );
         }
         warnings
     }
