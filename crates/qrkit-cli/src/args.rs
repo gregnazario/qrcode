@@ -25,10 +25,16 @@ pub struct Cli {
     #[arg(short, long, global = true)]
     pub output: Option<PathBuf>,
 
-    /// Force output format: svg|pdf|eps|term (overrides extension; term =
-    /// ANSI truecolor half-blocks for the terminal).
+    /// Force output format: svg|pdf|eps|term|png|kitty|iterm|sixel|auto
+    /// (overrides extension). term = ANSI half-blocks; kitty/iterm/sixel are
+    /// terminal image protocols; auto detects the terminal (image protocol
+    /// where available, else term half-blocks).
     #[arg(long, global = true)]
     pub format: Option<String>,
+
+    /// Pixels per module for raster formats (png/kitty/iterm/sixel; default 24).
+    #[arg(long, global = true, default_value_t = 24)]
+    pub px: u32,
 
     /// Error correction: low|medium|quartile|high (default quartile).
     #[arg(long, global = true)]
@@ -391,15 +397,28 @@ pub fn style_from_args(cli: &Cli) -> Result<StyleConfig, Error> {
 }
 
 /// Output format: explicit --format, else output extension, else svg.
+/// `auto` resolves to a concrete terminal format via env detection.
 pub fn output_format(cli: &Cli) -> Result<&'static str, Error> {
     if let Some(f) = &cli.format {
-        return match f.as_str() {
+        let resolved = match f.as_str() {
+            "auto" => match qrkit::writers::term_auto::detect() {
+                qrkit::writers::term_auto::TermImage::Kitty => "kitty",
+                qrkit::writers::term_auto::TermImage::Iterm => "iterm",
+                qrkit::writers::term_auto::TermImage::AnsiBlocks => "term",
+            },
+            other => other,
+        };
+        return match resolved {
             "svg" => Ok("svg"),
             "pdf" => Ok("pdf"),
             "eps" => Ok("eps"),
-            "term" | "ansi" | "txt" => Ok("term"),
+            "term" => Ok("term"),
+            "png" => Ok("png"),
+            "kitty" => Ok("kitty"),
+            "iterm" => Ok("iterm"),
+            "sixel" => Ok("sixel"),
             other => Err(Error::InvalidStyle(format!(
-                "unknown format '{other}', expected svg|pdf|eps|term"
+                "unknown format '{other}', expected svg|pdf|eps|term|png|kitty|iterm|sixel|auto"
             ))),
         };
     }
@@ -409,8 +428,10 @@ pub fn output_format(cli: &Cli) -> Result<&'static str, Error> {
             Some("pdf") => Ok("pdf"),
             Some("eps") => Ok("eps"),
             Some("term") | Some("ansi") | Some("txt") => Ok("term"),
+            Some("png") => Ok("png"),
+            Some("six") | Some("sixel") => Ok("sixel"),
             _ => Err(Error::InvalidStyle(
-                "cannot infer format from extension; use --format svg|pdf|eps|term".into(),
+                "cannot infer format from extension; use --format".into(),
             )),
         };
     }

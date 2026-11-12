@@ -1,9 +1,16 @@
 //! Format writers: pure serializers of a VectorScene, plus the terminal
-//! renderer (which works from the module matrix instead — see `term`).
+//! renderers (which work from the module matrix / raster instead — see
+//! `term`, `kitty`, `iterm`, `sixel`).
 
 #[doc(hidden)]
 pub mod common;
 pub mod eps;
+pub mod iterm;
+pub mod kitty;
 pub mod pdf;
+pub mod png;
+pub mod raster;
+pub mod sixel;
 pub mod svg;
 pub mod term;
+pub mod term_auto;

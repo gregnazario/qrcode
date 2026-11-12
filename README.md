@@ -20,11 +20,14 @@ $ qrkit geo --lat 51.5007 --lon -0.1246 -o spot.eps
 $ qrkit text "hello" --preview        # Unicode preview on stderr
 ```
 
-Output format is inferred from the extension (`svg|pdf|eps|term`), or forced with
-`--format`. Without `-o`, SVG goes to stdout. `--format term` prints an ANSI
-truecolor QR (half-blocks, gradients sampled per module, white quiet zone so
-it scans off dark terminal themes) — module shapes do not apply in the
-character grid.
+Output format is inferred from the extension, or forced with `--format`
+(`svg|pdf|eps|term|png|kitty|iterm|sixel|auto`). Without `-o`, SVG goes to
+stdout. Terminal formats: `term` = ANSI truecolor half-blocks; `kitty`
+(kitty/Ghostty/WezTerm graphics protocol), `iterm` (iTerm2/Konsole inline
+images), and `sixel` (xterm/foot/WezTerm/mintty) embed a rasterized image
+via `--px` pixels per module; `auto` picks the best protocol for your
+terminal and falls back to half-blocks. Module shapes do not apply to the
+character grid (`term`).
 
 ## Content types
 
