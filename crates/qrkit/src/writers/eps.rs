@@ -6,7 +6,7 @@
 use super::common::linear_endpoints;
 use crate::logo::decode_rgba;
 use crate::render::to_path;
-use crate::scene::{EmbeddedImage, Fill, FillRule, PathCmd, Rgba, Shape, VectorScene};
+use crate::scene::{EmbeddedImage, Fill, FillRule, PathCmd, Rgba, SceneItem, Shape, VectorScene};
 use std::fmt::Write as _;
 
 /// Serialize a scene to a standalone EPS document.
@@ -32,11 +32,25 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
     let _ = writeln!(out, "%%EndComments");
 
     if let Some(Fill::Solid(c)) = &scene.background {
-        set_color(&blend(c), &mut out);
+        // The backdrop for the background itself is white paper, not the
+        // background color (blending a color against itself is a no-op).
+        set_color(&blend_over(*c, Rgba::WHITE), &mut out);
         let _ = writeln!(out, "0 0 {s:.3} {s:.3} rectfill");
     } else {
         // transparent background: leave unpainted (white paper)
     }
+
+    // Gradient items paint through a clip of the just-built path. PostScript
+    // `clip` uses the nonzero winding rule, which would close the even-odd
+    // holes of eye rings (their hole subpath has winding 2 and falls inside
+    // the clip); `eoclip` honors the item's fill rule instead.
+    let clip_op = |item: &SceneItem| {
+        if item.fill_rule == FillRule::EvenOdd {
+            "eoclip"
+        } else {
+            "clip"
+        }
+    };
 
     for item in &scene.items {
         emit_path(&item.shape, &fy, &mut out);
@@ -58,7 +72,7 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
                 angle_deg,
             } => {
                 let ((x0, y0), (x1, y1)) = linear_endpoints(s, *angle_deg);
-                let _ = writeln!(out, " gsave clip");
+                let _ = writeln!(out, " gsave {}", clip_op(item));
                 let _ = writeln!(
                     out,
                     "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [{:.3} {:.3} {:.3} {:.3}] /Function {} /Extend [true true] >> shfill",
@@ -72,7 +86,7 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
             }
             Fill::RadialGradient { from, to } => {
                 let c = s / 2.0;
-                let _ = writeln!(out, " gsave clip");
+                let _ = writeln!(out, " gsave {}", clip_op(item));
                 let _ = writeln!(
                     out,
                     "<< /ShadingType 3 /ColorSpace /DeviceRGB /Coords [{:.3} {:.3} 0 {:.3} {:.3} {:.3}] /Function {} /Extend [true true] >> shfill",
@@ -80,7 +94,7 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
                     fy(c),
                     c,
                     fy(c),
-                    c / 2.0,
+                    c, // end radius matches PDF/SVG (full half-size)
                     ps_function(&blend(from), &blend(to))
                 );
                 let _ = writeln!(out, "grestore");
@@ -167,7 +181,10 @@ fn emit_path(shape: &Shape, fy: &impl Fn(f32) -> f32, out: &mut String) {
 }
 
 fn embed_image(img: &EmbeddedImage, fy: &impl Fn(f32) -> f32, bg: Rgba, out: &mut String) {
-    let (w, h, rgba) = decode_rgba(img.format, &img.bytes).expect("logo decodes");
+    // An undecodable logo is skipped, not fatal — same behavior as pdf.rs.
+    let Some((w, h, rgba)) = decode_rgba(img.format, &img.bytes).ok() else {
+        return;
+    };
     // PostScript bottom-left origin: translate to the logo's bottom edge in
     // flipped scene coords; the ImageMatrix row flip keeps pixel row 0 on top.
     let _ = writeln!(
