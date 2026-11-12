@@ -183,6 +183,18 @@ fn module_item(x: i32, y: i32, style: &StyleConfig) -> SceneItem {
 /// One finder eye at module (ex, ey), 7x7 modules: ring + inner 3x3 dot.
 /// Both parts are emitted as Paths: writers serialize every shape through
 /// [`to_path`], and eye geometry must not depend on the module shape style.
+///
+/// Decode-safety bound: decoders sample each module at its center, so every
+/// dark finder module center must stay inside the painted ring. The corner
+/// module center sits at (0.5, 0.5) from the eye corner, which caps any
+/// outer corner radius at 0.5 / (1 - 1/sqrt(2)) ~= 1.707 modules; we use 1.5
+/// to keep an antialiasing/sampling margin. Rounded and Leaf radii stay
+/// under that bound. A true circle inscribed in the 7x7 can never reach the
+/// corner module centers (distance sqrt(2) * 3 ~= 4.24 > 3.5), so Circle
+/// eyes additionally paint the corner tabs in [`CIRCLE_CORNER_TABS`].
+/// Rounded and Leaf eyes get small square corner nubs: decoders fit the
+/// capstone perspective from the ring's extreme corners, and restoring the
+/// true 7x7 corner extent keeps that fit exact.
 fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
     let margin = style.margin_modules as f32;
     let (x, y) = (ex as f32 + margin, ey as f32 + margin);
@@ -219,21 +231,21 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
                 y,
                 w: 7.0,
                 h: 7.0,
-                radii: CornerRadii::all(2.0),
+                radii: CornerRadii::all(1.5),
             },
             Shape::RoundedRect {
                 x: x + 1.0,
                 y: y + 1.0,
                 w: 5.0,
                 h: 5.0,
-                radii: CornerRadii::all(1.25),
+                radii: CornerRadii::all(0.9),
             },
             Shape::RoundedRect {
                 x: x + 2.0,
                 y: y + 2.0,
                 w: 3.0,
                 h: 3.0,
-                radii: CornerRadii::all(0.75),
+                radii: CornerRadii::all(0.6),
             },
         ),
         EyeShape::Circle => (
@@ -242,10 +254,14 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
                 cy: y + 3.5,
                 r: 3.5,
             },
+            // Hole radius window: >= sqrt(2) * 2 + 0.5 ~= 2.83 so the four
+            // light modules diagonal from each corner (whose centers lie
+            // 2.83 from the eye center) stay unpainted, and < 3.0 so the
+            // mid-edge dark border modules (centers at 3.0) stay painted.
             Shape::Circle {
                 cx: x + 3.5,
                 cy: y + 3.5,
-                r: 2.5,
+                r: 2.9,
             },
             Shape::Circle {
                 cx: x + 3.5,
@@ -260,9 +276,9 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
                 w: 7.0,
                 h: 7.0,
                 radii: CornerRadii {
-                    tl: 3.0,
+                    tl: 1.5,
                     tr: 0.0,
-                    br: 3.0,
+                    br: 1.5,
                     bl: 0.0,
                 },
             },
@@ -272,9 +288,9 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
                 w: 5.0,
                 h: 5.0,
                 radii: CornerRadii {
-                    tl: 2.0,
+                    tl: 0.9,
                     tr: 0.0,
-                    br: 2.0,
+                    br: 0.9,
                     bl: 0.0,
                 },
             },
@@ -284,9 +300,9 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
                 w: 3.0,
                 h: 3.0,
                 radii: CornerRadii {
-                    tl: 1.5,
+                    tl: 0.6,
                     tr: 0.0,
-                    br: 1.5,
+                    br: 0.6,
                     bl: 0.0,
                 },
             },
@@ -296,7 +312,7 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
     // Ring = outer path + hole subpath, even-odd.
     items.push(SceneItem {
         shape: Shape::Path([shape_subpath(&outer), shape_subpath(&inner_hole)].concat()),
-        fill: ring_fill,
+        fill: ring_fill.clone(),
         fill_rule: FillRule::EvenOdd,
     });
     items.push(SceneItem {
@@ -304,7 +320,71 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
         fill: dot_fill,
         fill_rule: FillRule::NonZero,
     });
+
+    // Circle hybrid: the inscribed circle misses the module centers at the
+    // four corners (distance 4.24) and beside them on the edges (3.61),
+    // both > 3.5. Paint an L of three 1x1 tabs at each corner so every dark
+    // border module center is covered while the diagonal light modules stay
+    // clear (they are inside the r=2.9 hole).
+    if matches!(style.eye_shape, EyeShape::Circle) {
+        for (tx, ty) in CIRCLE_CORNER_TABS {
+            items.push(SceneItem {
+                shape: Shape::RoundedRect {
+                    x: x + tx,
+                    y: y + ty,
+                    w: 1.0,
+                    h: 1.0,
+                    radii: CornerRadii::all(0.2),
+                },
+                fill: ring_fill.clone(),
+                fill_rule: FillRule::NonZero,
+            });
+        }
+    }
+
+    // Corner nubs for the rounded-eye styles: rqrr-class decoders fit the
+    // capstone perspective from the extreme corners of the ring's connected
+    // black region, so rounding those corners biases the grid fit enough to
+    // push marginal styles (small dots, logo) past the ECC limit. A small
+    // square nub at each rounded corner restores the true 7x7 corner extent
+    // while keeping the rounded look. Square eyes are exact already; Circle
+    // eyes are covered by the fuller corner tabs above.
+    let nubs: &[(f32, f32)] = match style.eye_shape {
+        EyeShape::Rounded => &[(0.0, 0.0), (6.4, 0.0), (6.4, 6.4), (0.0, 6.4)],
+        EyeShape::Leaf => &[(0.0, 0.0), (6.4, 6.4)], // only tl/br are rounded
+        EyeShape::Square | EyeShape::Circle => &[],
+    };
+    for (nx, ny) in nubs {
+        items.push(SceneItem {
+            shape: Shape::Rect {
+                x: x + nx,
+                y: y + ny,
+                w: 0.6,
+                h: 0.6,
+            },
+            fill: ring_fill.clone(),
+            fill_rule: FillRule::NonZero,
+        });
+    }
 }
+
+/// Module offsets (within the 7x7 eye) of the corner tabs painted for
+/// Circle eyes: three tabs per corner in an L, covering the corner module
+/// and the two edge modules adjacent to it.
+const CIRCLE_CORNER_TABS: [(f32, f32); 12] = [
+    (0.0, 0.0),
+    (1.0, 0.0),
+    (0.0, 1.0), // top-left
+    (5.0, 0.0),
+    (6.0, 0.0),
+    (6.0, 1.0), // top-right
+    (6.0, 6.0),
+    (5.0, 6.0),
+    (6.0, 5.0), // bottom-right
+    (0.0, 6.0),
+    (0.0, 5.0),
+    (1.0, 6.0), // bottom-left
+];
 
 /// Convert Rect/RoundedRect/Circle to an equivalent Path subpath (closed).
 /// Writers only serialize Paths; this is the single conversion point.

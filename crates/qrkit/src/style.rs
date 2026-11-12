@@ -36,7 +36,8 @@ pub enum ModuleShape {
     Square,
     /// Uniform rounding, radius 0.25 of a module.
     Rounded,
-    /// Circle dots; `radius` in module units, clamped to 0.1..=0.5.
+    /// Circle dots; `radius` in module units, clamped to 0.1..=0.5. Radii
+    /// below 0.4 decode-verified as risky (rqrr fails to detect the code).
     Dots {
         radius: f32,
     },
@@ -153,6 +154,8 @@ impl StyleConfig {
         if let ModuleShape::Dots { radius } = self.shape {
             if !(0.1..=0.5).contains(&radius) {
                 warnings.push(format!("dot radius {radius} out of range 0.1..=0.5"));
+            } else if radius < 0.4 {
+                warnings.push("dot radius below 0.4 may reduce scanner compatibility".to_string());
             }
         }
         if let Some(logo) = &self.logo {
