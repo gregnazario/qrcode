@@ -20,8 +20,11 @@ $ qrkit geo --lat 51.5007 --lon -0.1246 -o spot.eps
 $ qrkit text "hello" --preview        # Unicode preview on stderr
 ```
 
-Output format is inferred from the extension (`svg|pdf|eps`), or forced with
-`--format`. Without `-o`, SVG goes to stdout.
+Output format is inferred from the extension (`svg|pdf|eps|term`), or forced with
+`--format`. Without `-o`, SVG goes to stdout. `--format term` prints an ANSI
+truecolor QR (half-blocks, gradients sampled per module, white quiet zone so
+it scans off dark terminal themes) — module shapes do not apply in the
+character grid.
 
 ## Content types
 

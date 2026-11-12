@@ -134,7 +134,7 @@ pub fn render(matrix: &Matrix, style: &StyleConfig) -> VectorScene {
     scene
 }
 
-fn in_finder(x: i32, y: i32, n: i32) -> bool {
+pub(crate) fn in_finder(x: i32, y: i32, n: i32) -> bool {
     (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7)
 }
 
