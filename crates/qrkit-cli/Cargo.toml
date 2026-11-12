@@ -1,0 +1,17 @@
+[package]
+name = "qrkit-cli"
+description = "Command-line QR code generator with vector output"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "qrkit_cli"
+
+[[bin]]
+name = "qrkit"
+path = "src/main.rs"
+
+[dependencies]
+qrkit = { path = "../qrkit" }
+clap.workspace = true

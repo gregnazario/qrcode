@@ -1,0 +1,19 @@
+[package]
+name = "qrkit-wasm"
+description = "WebAssembly binding for qrkit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+qrkit = { path = "../qrkit" }
+wasm-bindgen.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+
+[dev-dependencies]
+base64.workspace = true

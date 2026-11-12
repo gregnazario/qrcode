@@ -1,0 +1,20 @@
+[package]
+name = "qrkit"
+description = "Customizable QR code generator with vector (SVG/PDF/EPS) output"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+qrcodegen.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+base64.workspace = true
+png.workspace = true
+zune-jpeg.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+tiny-skia.workspace = true
+rqrr.workspace = true
+lopdf.workspace = true
