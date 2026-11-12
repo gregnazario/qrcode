@@ -12,9 +12,11 @@ serde.workspace = true
 base64.workspace = true
 png.workspace = true
 zune-jpeg.workspace = true
+tiny-skia.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
-tiny-skia.workspace = true
 rqrr.workspace = true
 lopdf.workspace = true
+png.workspace = true
+base64.workspace = true

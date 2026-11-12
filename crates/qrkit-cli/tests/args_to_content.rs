@@ -24,6 +24,7 @@ fn cli_for(cmd: Commands) -> Cli {
         logo: None,
         logo_size: None,
         logo_padding: None,
+        px: 24,
         preview: false,
     }
 }

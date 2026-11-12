@@ -44,6 +44,10 @@ fn run(cli: &Cli) -> Result<(), String> {
         "pdf" => qrkit::writers::pdf::write(&img.scene),
         "eps" => qrkit::writers::eps::write(&img.scene),
         "term" => qrkit::writers::term::render(&img.matrix, &style_for_term),
+        "png" => qrkit::writers::png::write(&img.scene, cli.px),
+        "kitty" => qrkit::writers::kitty::write(&img.scene, cli.px),
+        "iterm" => qrkit::writers::iterm::write(&img.scene, cli.px),
+        "sixel" => qrkit::writers::sixel::write(&img.scene, cli.px),
         _ => unreachable!(),
     };
 
