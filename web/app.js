@@ -88,7 +88,8 @@ function collectStyle() {
     shape: $("shape").value,
     dotRadius: parseFloat($("dot-radius").value),
     eye: $("eye").value,
-    eyeColor: $("eye-color").value,
+    // "auto" leaves eyeColor unset so the eyes follow fg / the gradient.
+    eyeColor: $("eye-auto").checked ? undefined : $("eye-color").value,
     ecc: $("ecc").value,
     margin: parseInt($("margin").value, 10),
   };
@@ -152,6 +153,11 @@ async function main() {
       if (el.id === "logo" || el.id === "type" || el.dataset.field) return;
       el.addEventListener("input", update);
     });
+  // "auto" eye color: toggling it enables/disables the color picker; the
+  // generic loop above already wired the checkbox itself to update().
+  $("eye-auto").addEventListener("input", () => {
+    $("eye-color").disabled = $("eye-auto").checked;
+  });
   $("logo").addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) { logoBase64 = null; update(); return; }
