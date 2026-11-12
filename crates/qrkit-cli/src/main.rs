@@ -20,23 +20,26 @@ fn run(cli: &Cli) -> Result<(), String> {
         .map_err(|e| e.to_string())?
         .style(style);
 
+    // Build once for both the preview and the output so style warnings are
+    // always collected (the per-format to_* helpers would silently drop them).
+    let img = builder.build().map_err(|e| e.to_string())?;
+
     if cli.preview {
-        let img = builder.build().map_err(|e| e.to_string())?;
         // re-encode a plain matrix for the half-block preview (style-independent)
         let matrix =
             qrkit::render::Matrix::encode(&payload, Ecc::High, qrkit::style::Version::Auto)
                 .map_err(|e| e.to_string())?;
         eprint!("{}", preview::half_blocks(&matrix, 2));
-        for w in &img.warnings {
-            eprintln!("warning: {w}");
-        }
+    }
+    for w in &img.warnings {
+        eprintln!("warning: {w}");
     }
 
     let format = output_format(cli).map_err(|e| e.to_string())?;
     let bytes = match format {
-        "svg" => builder.to_svg().map_err(|e| e.to_string())?,
-        "pdf" => builder.to_pdf().map_err(|e| e.to_string())?,
-        "eps" => builder.to_eps().map_err(|e| e.to_string())?,
+        "svg" => qrkit::writers::svg::write(&img.scene),
+        "pdf" => qrkit::writers::pdf::write(&img.scene),
+        "eps" => qrkit::writers::eps::write(&img.scene),
         _ => unreachable!(),
     };
 
