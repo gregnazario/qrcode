@@ -44,7 +44,7 @@ fn png_decodes_via_rqrr() {
 
 #[test]
 fn kitty_payload_is_chunked_png() {
-    let bytes = kitty::write(&scene().scene, 8); // small px keeps chunks few
+    let bytes = kitty::write(&scene().scene, 8); // >1 chunk at this size
     let s = String::from_utf8(bytes.to_vec()).unwrap();
     assert!(
         s.starts_with("\x1b_Ga=d,d=i,i=31,q=2\x1b\\"),
@@ -61,12 +61,18 @@ fn kitty_payload_is_chunked_png() {
         .decode(b64.trim())
         .expect("payload is base64");
     assert_eq!(&png_bytes[0..8], b"\x89PNG\r\n\x1a\n", "payload is a PNG");
-    // every full chunk is ≤ 4096 bytes of base64
-    for chunk in s.split("\x1b\\").filter(|c| c.contains(';')) {
+    // every full chunk is ≤ 4096 bytes of base64, and the transmission
+    // terminates: exactly one chunk carries m=0 and it is the last.
+    let chunks: Vec<&str> = s.split("\x1b\\").filter(|c| c.contains(';')).collect();
+    assert!(chunks.len() > 1, "this test wants the multi-chunk path");
+    for chunk in &chunks {
         if let Some((_, data)) = chunk.split_once(';') {
             assert!(data.len() <= 4096, "chunk {} > 4096", data.len());
         }
     }
+    let terms = chunks.iter().filter(|c| c.contains("m=0")).count();
+    assert_eq!(terms, 1, "exactly one terminating m=0 chunk");
+    assert!(chunks.last().unwrap().contains("m=0"), "terminator is last");
 }
 
 #[test]
@@ -273,28 +279,21 @@ fn term_auto_detection_prefers_protocols() {
 
 #[test]
 fn kitty_single_chunk_transmission_terminates() {
-    // Small px keeps the base64 PNG under one 4096-byte chunk; the
-    // transmission MUST still end with a final m=0 chunk or kitty buffers
-    // it forever and never displays the image.
-    let bytes = kitty::write(&scene().scene, 4);
+    // px=2 keeps the base64 PNG under one 4096-byte chunk (measured ~3.8k);
+    // the transmission MUST still end with a final m=0 chunk or kitty
+    // buffers it forever and never displays the image. Assert the chunk
+    // count up front so payload/encoder changes can't silently grow it past
+    // the single-chunk case this test exists to guard.
+    let bytes = kitty::write(&scene().scene, 2);
     let s = String::from_utf8(bytes.to_vec()).unwrap();
     let chunks: Vec<&str> = s
         .split("\x1b\\")
         .filter(|c| c.starts_with("\x1b_G") && c.contains(';'))
         .collect();
-    assert!(!chunks.is_empty());
-    let last = chunks.last().unwrap();
+    assert_eq!(chunks.len(), 1, "scene at px=2 must fit one chunk");
+    let only = chunks[0];
     assert!(
-        last.contains("m=0") || (!last.contains("m=1") && last.contains("a=T")),
-        "final chunk must terminate the transmission (m=0): {last:?}"
+        only.contains("m=0"),
+        "single-chunk transmission must carry m=0 (terminates): {only:?}"
     );
-    // and every m=1 chunk implies a following chunk
-    for (i, c) in chunks.iter().enumerate() {
-        if c.contains("m=1") {
-            assert!(
-                i + 1 < chunks.len(),
-                "m=1 chunk at {i} is never followed by a terminator"
-            );
-        }
-    }
 }
