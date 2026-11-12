@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>qrkit — vector QR generator</title>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<header><h1>qrkit</h1><p>Customizable QR codes as true vector graphics</p></header>
+<main>
+  <section id="panel">
+    <label>Content type
+      <select id="type"></select>
+    </label>
+    <div id="content-form"></div>
+    <fieldset>
+      <legend>Style</legend>
+      <div class="row">
+        <label>Foreground <input type="color" id="fg" value="#000000"/></label>
+        <label>Background <input type="color" id="bg" value="#ffffff"/></label>
+        <label class="check"><input type="checkbox" id="bg-transparent"/> transparent</label>
+      </div>
+      <div class="row">
+        <label>Gradient
+          <select id="gradient"><option value="">none</option><option>linear</option><option>radial</option></select>
+        </label>
+        <label>To <input type="color" id="gradient-to" value="#42a5f5"/></label>
+        <label>Angle <input type="number" id="gradient-angle" value="45" min="0" max="359"/></label>
+      </div>
+      <div class="row">
+        <label>Shape
+          <select id="shape"><option>square</option><option>rounded</option><option>dots</option><option>classy</option></select>
+        </label>
+        <label>Dot radius <input type="range" id="dot-radius" min="0.1" max="0.5" step="0.05" value="0.5"/></label>
+        <label>Eye
+          <select id="eye"><option>square</option><option>rounded</option><option>circle</option><option>leaf</option></select>
+        </label>
+      </div>
+      <div class="row">
+        <label>Eye color <input type="color" id="eye-color" value="#000000"/></label>
+        <label>ECC
+          <select id="ecc"><option>quartile</option><option>low</option><option>medium</option><option>high</option></select>
+        </label>
+        <label>Margin <input type="number" id="margin" value="4" min="0" max="16"/></label>
+      </div>
+      <div class="row">
+        <label>Logo <input type="file" id="logo" accept="image/png,image/jpeg"/></label>
+        <label>Logo size <input type="range" id="logo-size" min="0.1" max="0.33" step="0.01" value="0.25"/></label>
+      </div>
+    </fieldset>
+    <div id="warnings"></div>
+  </section>
+  <section id="preview">
+    <div id="qr"></div>
+    <div id="downloads">
+      <button data-fmt="svg">Download SVG</button>
+      <button data-fmt="pdf">Download PDF</button>
+      <button data-fmt="eps">Download EPS</button>
+    </div>
+  </section>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
