@@ -397,7 +397,7 @@ pub fn output_format(cli: &Cli) -> Result<&'static str, Error> {
             "svg" => Ok("svg"),
             "pdf" => Ok("pdf"),
             "eps" => Ok("eps"),
-            "term" => Ok("term"),
+            "term" | "ansi" | "txt" => Ok("term"),
             other => Err(Error::InvalidStyle(format!(
                 "unknown format '{other}', expected svg|pdf|eps|term"
             ))),

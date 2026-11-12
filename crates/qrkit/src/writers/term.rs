@@ -7,13 +7,20 @@
 //! with the dark module's color as the foreground and the light background
 //! as the cell background; two dark modules share one `▀` (upper in fg,
 //! lower in bg). The quiet zone paints the background color so the code
-//! scans off dark terminal themes; `background: None` falls back to white
-//! (terminals have no alpha).
+//! scans off dark terminal themes.
+//!
+//! Terminal divergences from the vector writers, by necessity or choice:
+//! translucent fills are pre-blended against the background (terminals
+//! have no alpha, same rule as EPS); non-solid backgrounds fall back to
+//! white; the gradient axis spans the code area only (not the margin —
+//! the tight 2-module term frame would otherwise compress most of the
+//! ramp into the quiet zone); and `style.logo` is ignored (a logo hole
+//! would waste modules for no visual gain on a character grid).
 
 use crate::render::{in_finder, Matrix};
 use crate::scene::{Fill, Rgba};
 use crate::style::StyleConfig;
-use crate::writers::common::linear_endpoints;
+use crate::writers::common::{blend_over, linear_endpoints};
 use std::fmt::Write as _;
 
 /// Terminal margin in modules (tighter than the 4-module vector default —
@@ -23,16 +30,19 @@ const TERM_MARGIN: i32 = 2;
 /// Render a QR matrix as ANSI truecolor text (half-block, 2 rows/char).
 pub fn render(matrix: &Matrix, style: &StyleConfig) -> Vec<u8> {
     let n = matrix.size();
+    // Terminals have no alpha: translucent backgrounds blend onto white
+    // (the terminal's implicit paper), non-solid backgrounds fall back to it.
     let bg = match &style.background {
-        Some(Fill::Solid(c)) => *c,
-        _ => Rgba::WHITE, // transparent has no terminal equivalent
+        Some(Fill::Solid(c)) => blend_over(*c, Rgba::WHITE),
+        _ => Rgba::WHITE,
     };
     // Cell color at grid coords (includes the quiet-zone frame): None = the
-    // background color (light module or margin).
+    // background color (light module or margin). Dark module colors are
+    // pre-blended against the background so translucent fills look right.
     let cell = |x: i32, y: i32| -> Option<Rgba> {
         let (mx, my) = (x - TERM_MARGIN, y - TERM_MARGIN);
         if (0..n).contains(&mx) && (0..n).contains(&my) {
-            module_color(matrix, style, mx, my, n)
+            module_color(matrix, style, mx, my, n, bg)
         } else {
             None
         }
@@ -91,11 +101,18 @@ pub fn render(matrix: &Matrix, style: &StyleConfig) -> Vec<u8> {
 /// fill (their inner 3x3 the eye-inner/module fill), everything else the
 /// module fill. Light modules return None. Gradients are sampled at the
 /// module's center so a gradient fill keeps its direction in the grid.
-fn module_color(matrix: &Matrix, style: &StyleConfig, x: i32, y: i32, n: i32) -> Option<Rgba> {
+fn module_color(
+    matrix: &Matrix,
+    style: &StyleConfig,
+    x: i32,
+    y: i32,
+    n: i32,
+    bg: Rgba,
+) -> Option<Rgba> {
     if !matrix.get(x, y) {
         return None;
     }
-    if in_finder(x, y, n) {
+    let fill = if in_finder(x, y, n) {
         let (ex, ey) = if x < 7 && y < 7 {
             (0, 0)
         } else if x >= n - 7 && y < 7 {
@@ -105,12 +122,14 @@ fn module_color(matrix: &Matrix, style: &StyleConfig, x: i32, y: i32, n: i32) ->
         };
         let inner = (2..=4).contains(&(x - ex)) && (2..=4).contains(&(y - ey));
         if inner {
-            let fill = style.eye_inner_fill.as_ref().unwrap_or(&style.fill);
-            return Some(sample_fill(fill, x, y, n));
+            style.eye_inner_fill.as_ref().unwrap_or(&style.fill)
+        } else {
+            &style.eye_fill
         }
-        return Some(sample_fill(&style.eye_fill, x, y, n));
-    }
-    Some(sample_fill(&style.fill, x, y, n))
+    } else {
+        &style.fill
+    };
+    Some(blend_over(sample_fill(fill, x, y, n), bg))
 }
 
 /// Sample a fill at a module center (matrix coords): solids pass through,

@@ -1,6 +1,26 @@
 //! Geometry helpers shared by all writers.
 
-use crate::scene::Fill;
+use crate::scene::{Fill, Rgba};
+
+/// Source-over composite of `c` on the opaque backdrop `bg`; the result is
+/// always opaque. Used by the alpha-less output formats (EPS, terminal).
+///
+/// 8-bit alpha maps to `k/256`, so the halfway alpha 128 composites to an
+/// exact 0.5 mix: a 50% black tint over white rounds to 128 = "0.502".
+/// Fully opaque colors pass through unchanged.
+pub(crate) fn blend_over(c: Rgba, bg: Rgba) -> Rgba {
+    if c.a == 255 {
+        return c;
+    }
+    let a = c.a as f32 / 256.0;
+    let mix = |fg: u8, b: u8| (fg as f32 * a + b as f32 * (1.0 - a)).round() as u8;
+    Rgba {
+        r: mix(c.r, bg.r),
+        g: mix(c.g, bg.g),
+        b: mix(c.b, bg.b),
+        a: 255,
+    }
+}
 
 /// Endpoints of a linear gradient axis through the scene center, spanning
 /// the bounding box of a `size x size` square, for `angle_deg`

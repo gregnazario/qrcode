@@ -14,8 +14,14 @@ fn main() {
 fn run(cli: &Cli) -> Result<(), String> {
     let content = content_from_args(cli).map_err(|e| e.to_string())?;
     let style = style_from_args(cli).map_err(|e| e.to_string())?;
-    // The term renderer works from the matrix + style (not the scene).
-    let style_for_term = style.clone();
+    let format = output_format(cli).map_err(|e| e.to_string())?;
+    // The term renderer works from the matrix + style (not the scene); the
+    // clone can carry logo bytes, so only pay it for that format.
+    let style_for_term = if format == "term" {
+        style.clone()
+    } else {
+        Default::default()
+    };
     let builder = QrBuilder::new(content)
         .map_err(|e| e.to_string())?
         .style(style);
@@ -33,7 +39,6 @@ fn run(cli: &Cli) -> Result<(), String> {
         eprintln!("warning: {w}");
     }
 
-    let format = output_format(cli).map_err(|e| e.to_string())?;
     let bytes = match format {
         "svg" => qrkit::writers::svg::write(&img.scene),
         "pdf" => qrkit::writers::pdf::write(&img.scene),

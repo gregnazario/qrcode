@@ -65,7 +65,7 @@ fn parse_ansi(bytes: &[u8]) -> Vec<Vec<(u8, u8, u8)>> {
             let seq = seq.trim_start_matches('[');
             let nums: Vec<u32> = seq
                 .split(';')
-                .map(|p| p.parse::<u32>().unwrap_or(999))
+                .map(|p| p.parse::<u32>().expect("valid SGR integer"))
                 .collect();
             match nums.first() {
                 Some(&38) => {
@@ -231,7 +231,7 @@ fn term_gradient_samples_module_positions() {
 }
 
 #[test]
-fn term_eye_color_applies_to_finders() {
+fn term_eye_and_inner_colors_apply_at_exact_positions() {
     let style = StyleConfig::new()
         .eye_shape(EyeShape::Square)
         .eye_fill(qrkit::scene::Fill::Solid(Rgba {
@@ -239,16 +239,43 @@ fn term_eye_color_applies_to_finders() {
             g: 10,
             b: 10,
             a: 255,
-        }));
+        }))
+        .eye_inner_fill(Some(qrkit::scene::Fill::Solid(Rgba {
+            r: 10,
+            g: 200,
+            b: 10,
+            a: 255,
+        })));
     let img = QrBuilder::new(Content::Text("eye term".into()))
         .unwrap()
         .build()
         .unwrap();
     let bytes = term::render(&img.matrix, &style);
-    let s = String::from_utf8(bytes.to_vec()).unwrap();
-    assert!(
-        s.contains("\x1b[38;2;200;10;10m"),
-        "eye ring truecolor present"
+    let grid = parse_ansi(&bytes);
+    let margin = 2usize;
+    let check = |x: usize, y: usize, want: (u8, u8, u8), what: &str| {
+        assert_eq!(grid[y + margin][x + margin], want, "{what} at ({x},{y})");
+    };
+    // Ring module (finder corner) and inner 3x3 center, in each of the
+    // three eyes.
+    let n = img.matrix.size() as usize;
+    for (ex, ey) in [(0usize, 0usize), (n - 7, 0), (0, n - 7)] {
+        check(ex, ey, (200, 10, 10), "eye ring color");
+        check(ex + 3, ey + 3, (10, 200, 10), "eye inner color");
+    }
+    // eye_inner_fill absent -> falls back to the module fill (black).
+    let style2 = StyleConfig::new().eye_fill(qrkit::scene::Fill::Solid(Rgba {
+        r: 200,
+        g: 10,
+        b: 10,
+        a: 255,
+    }));
+    let bytes2 = term::render(&img.matrix, &style2);
+    let grid2 = parse_ansi(&bytes2);
+    assert_eq!(
+        grid2[margin + 3][margin + 3],
+        (0, 0, 0),
+        "inner dot falls back to module fill (black)"
     );
 }
 

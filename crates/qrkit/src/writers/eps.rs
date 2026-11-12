@@ -3,7 +3,7 @@
 //! EPS has no alpha: every color is pre-blended against the effective
 //! background (scene background if solid, else white) before writing.
 
-use super::common::{collect_gradients, linear_endpoints};
+use super::common::{blend_over, collect_gradients, linear_endpoints};
 use crate::logo::decode_rgba;
 use crate::render::to_path_into;
 use crate::scene::{EmbeddedImage, Fill, FillRule, PathCmd, Rgba, SceneItem, Shape, VectorScene};
@@ -118,26 +118,6 @@ pub fn write(scene: &VectorScene) -> Vec<u8> {
 
     let _ = writeln!(out, "%%EOF");
     out.into_bytes()
-}
-
-/// Source-over composite of `c` on the opaque backdrop `bg`; the result is
-/// always opaque (EPS has no alpha).
-///
-/// 8-bit alpha maps to `k/256`, so the halfway alpha 128 composites to an
-/// exact 0.5 mix: a 50% black tint over white rounds to 128 = "0.502".
-/// Fully opaque colors pass through unchanged.
-fn blend_over(c: Rgba, bg: Rgba) -> Rgba {
-    if c.a == 255 {
-        return c;
-    }
-    let a = c.a as f32 / 256.0;
-    let mix = |fg: u8, b: u8| (fg as f32 * a + b as f32 * (1.0 - a)).round() as u8;
-    Rgba {
-        r: mix(c.r, bg.r),
-        g: mix(c.g, bg.g),
-        b: mix(c.b, bg.b),
-        a: 255,
-    }
 }
 
 fn set_color(c: &Rgba, out: &mut String) {
