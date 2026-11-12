@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>qrkit — documentation</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%23ffffff'/%3E%3Cpath d='M1 1h2v2H1zM5 1h2v2H5zM1 5h2v2H1zM5 5h1v1H5z' fill='%230d47a1'/%3E%3C/svg%3E"/>
+<link rel="stylesheet" href="style.css"/>
+<style>
+  main.docs { display: block; max-width: 52rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  main.docs nav.toc { border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+    border-radius: 10px; padding: 1rem 1.5rem; margin: 1.5rem 0; }
+  main.docs nav.toc ul { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+  main.docs h2 { margin-top: 2.5rem; border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent); padding-bottom: 0.3rem; }
+  main.docs h3 { margin-top: 1.6rem; }
+  main.docs table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.92rem; }
+  main.docs th, main.docs td { border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+    padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+  main.docs th { background: color-mix(in srgb, currentColor 6%, transparent); }
+  main.docs code { background: color-mix(in srgb, currentColor 8%, transparent);
+    border-radius: 4px; padding: 0.1rem 0.35rem; font-size: 0.88em; }
+  main.docs pre { background: color-mix(in srgb, currentColor 8%, transparent);
+    border-radius: 8px; padding: 0.8rem 1rem; overflow-x: auto; font-size: 0.85rem; }
+  main.docs pre code { background: none; padding: 0; }
+  main.docs .warn { border-left: 3px solid #b45309; padding: 0.4rem 0.9rem;
+    background: color-mix(in srgb, #b45309 8%, transparent); border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  header nav { display: flex; gap: 1.2rem; align-items: baseline; }
+  header nav a { color: inherit; }
+</style>
+</head>
+<body>
+<header>
+  <nav>
+    <h1>qrkit</h1>
+    <a href="index.html">generator</a>
+    <a href="docs.html">docs</a>
+  </nav>
+  <p>Customizable QR codes as true vector graphics — documentation</p>
+</header>
+<main class="docs">
+  <p>Everything on this page runs through the generator next door: pick a
+  content type, style it, download. This page explains each control, the
+  formats, and how to keep codes scannable.</p>
+
+  <nav class="toc">
+    <strong>On this page</strong>
+    <ul>
+      <li><a href="#content-types">Content types</a></li>
+      <li><a href="#styling">Styling guide</a></li>
+      <li><a href="#formats">Formats &amp; downloads</a></li>
+      <li><a href="#scanner-safety">Scanner safety</a></li>
+      <li><a href="#cli">Command-line equivalents</a></li>
+    </ul>
+  </nav>
+
+  <h2 id="content-types">Content types</h2>
+  <p>Each type validates your input and encodes the standard payload the
+  receiving app expects — a WiFi code opens network settings, a vCard adds
+  a contact, a calendar event offers to save the date.</p>
+  <table>
+    <tr><th>Type</th><th>Fields</th><th>Scanning it…</th></tr>
+    <tr><td>text</td><td>free text</td><td>shows the text</td></tr>
+    <tr><td>url</td><td>URL (<code>https://</code> added if missing)</td><td>opens the browser</td></tr>
+    <tr><td>email</td><td>to, subject, body</td><td>opens a composed mail</td></tr>
+    <tr><td>sms</td><td>number, message</td><td>opens the SMS app</td></tr>
+    <tr><td>phone</td><td>number</td><td>dials the number</td></tr>
+    <tr><td>wifi</td><td>SSID, password, encryption (WPA/WEP/open), hidden</td><td>joins the network</td></tr>
+    <tr><td>vcard</td><td>name, org, title, phones, emails, URL</td><td>adds a contact</td></tr>
+    <tr><td>geo</td><td>latitude, longitude</td><td>opens the map</td></tr>
+    <tr><td>calendar</td><td>title, start/end (UTC <code>YYYYMMDDTHHMMSSZ</code>), location, description</td><td>saves the event</td></tr>
+  </table>
+  <p>WiFi passwords and contact fields keep their special characters —
+  the correct escaping is applied for you.</p>
+
+  <h2 id="styling">Styling guide</h2>
+
+  <h3>Colors &amp; gradients</h3>
+  <p><strong>Foreground</strong> colors the modules (and the eyes, unless
+  you override them); <strong>background</strong> can be a color or
+  transparent (transparent is best reserved for placing the code on a
+  light surface yourself). Enable a <strong>gradient</strong> from
+  foreground to a second color — linear (with an angle) or radial.</p>
+
+  <h3>Shapes</h3>
+  <p><strong>Shape</strong> sets the module style: <em>square</em>,
+  <em>rounded</em>, <em>dots</em> (with radius slider), or <em>classy</em>
+  (two diagonally opposite corners rounded). <strong>Eye</strong> sets the
+  three finder patterns independently: square, rounded, circle, or leaf.
+  Circle and rounded eyes include tiny corner tabs — that's deliberate
+  (see <a href="#scanner-safety">scanner safety</a>); tick
+  <em>decorative</em> for pure shapes without them.</p>
+  <p>With <em>auto</em> eye color, the eyes follow your foreground or
+  gradient; untick it to set a separate eye ring color.</p>
+
+  <h3>Logo</h3>
+  <p>Upload a PNG or JPEG. The logo is centered, modules underneath it are
+  cleared (not overdrawn), and error correction automatically bumps to the
+  highest level so the code still scans. Keep the size within the
+  validated range (10–33% of the code).</p>
+
+  <h3>ECC &amp; margin</h3>
+  <p><strong>ECC</strong> (error correction) trades capacity for damage
+  tolerance: <em>low</em> 7% → <em>high</em> 30% recoverable. Quartile is
+  the default; a logo forces high. <strong>Margin</strong> is the quiet
+  zone around the code — 4 modules is the spec recommendation; smaller
+  margins can hurt scanning.</p>
+
+  <h2 id="formats">Formats &amp; downloads</h2>
+  <p>The three download buttons share identical geometry:</p>
+  <table>
+    <tr><th>Format</th><th>Best for</th><th>Notes</th></tr>
+    <tr><td><strong>SVG</strong></td><td>web, Figma/Illustrator/Inkscape, editing</td><td>lossless resize, full alpha</td></tr>
+    <tr><td><strong>PDF</strong></td><td>print handoffs</td><td>vector PDF 1.7, gradients as shadings, logo embedded</td></tr>
+    <tr><td><strong>EPS</strong></td><td>print shops, legacy workflows</td><td>PostScript 3; translucency is pre-blended (EPS has no alpha)</td></tr>
+  </table>
+  <p>The command-line tool adds <strong>PNG</strong> output and four
+  terminal formats — see below.</p>
+
+  <h2 id="scanner-safety">Scanner safety</h2>
+  <p>Every built-in style is held to a machine-checkable standard: the
+  generator's test suite renders each style combination and decodes it
+  back with a real QR decoder, requiring the exact original content. The
+  visual defaults follow from that:</p>
+  <ul>
+    <li><strong>Why the tabs on circle eyes?</strong> a perfect circle
+    can't cover a finder pattern's corners, and decoders need them — the
+    tabs complete the pattern.</li>
+    <li><strong>Decorative mode</strong> removes the tabs and uses bigger
+    corner radii. Phones are often forgiving; strict scanners are not.
+    Test your target scanner before printing decorative codes.</li>
+    <li><strong>Dots below 0.4 radius</strong> also warn — smaller dots
+    can drop below decoders' tolerance.</li>
+    <li><strong>Contrast</strong>: keep gradients dark enough that modules
+    stay clearly darker than the background.</li>
+  </ul>
+
+  <h2 id="cli">Command-line equivalents</h2>
+  <p>Everything here is also scriptable with the Rust CLI:</p>
+  <pre><code># install:  cargo install --path crates/qrkit-cli
+
+qrkit url "https://example.com" \
+  --shape dots --eye circle \
+  --fg "#0d47a1" --gradient linear --gradient-to "#42a5f5" \
+  --logo logo.png -o poster.pdf
+
+qrkit wifi --ssid "Cafe Guest" --password "latte-2026" -o menu.eps
+qrkit vcard --name "Ada Lovelace" --email ada@example.com -o card.svg
+
+# terminal formats (auto-detects kitty / iTerm2 / sixel / half-blocks):
+qrkit url "https://example.com" --format auto
+qrkit url "https://example.com" --format png --px 32 -o qr.png</code></pre>
+  <p>Full flag reference, payload formats, and the library API:
+  <a href="https://github.com/gregnazario/qrcode/tree/main/docs">qrkit documentation</a>.</p>
+</main>
+</body>
+</html>
