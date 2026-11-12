@@ -106,15 +106,15 @@
   margins can hurt scanning.</p>
 
   <h2 id="formats">Formats &amp; downloads</h2>
-  <p>The three download buttons share identical geometry:</p>
+  <p>The four download buttons share identical geometry:</p>
   <table>
     <tr><th>Format</th><th>Best for</th><th>Notes</th></tr>
     <tr><td><strong>SVG</strong></td><td>web, Figma/Illustrator/Inkscape, editing</td><td>lossless resize, full alpha</td></tr>
     <tr><td><strong>PDF</strong></td><td>print handoffs</td><td>vector PDF 1.7, gradients as shadings, logo embedded</td></tr>
     <tr><td><strong>EPS</strong></td><td>print shops, legacy workflows</td><td>PostScript 3; translucency is pre-blended (EPS has no alpha)</td></tr>
+    <tr><td><strong>PNG</strong></td><td>places that don't take vector, quick sharing</td><td>truecolor raster; set the px/module control (1–256, default 24); <code>transparent</code> background honored</td></tr>
   </table>
-  <p>The command-line tool adds <strong>PNG</strong> output and four
-  terminal formats — see below.</p>
+  <p>The command-line tool adds four terminal formats — see below.</p>
 
   <h2 id="scanner-safety">Scanner safety</h2>
   <p>Every built-in style is held to a machine-checkable standard: the

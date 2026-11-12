@@ -143,7 +143,9 @@ out.warnings;  // string[]
 
 Content uses a `type` tag (`text`, `url`, `email`, `sms`, `phone`, `wifi`,
 `vcard`, `geo`, `calendar`) with snake_case fields; style keys are
-camelCase and mirror the CLI flags. Formats: `svg`, `pdf`, `eps`.
+camelCase and mirror the CLI flags (`px` sets PNG pixels-per-module,
+default 24). Formats: `svg`, `pdf`, `eps`, `png` (returned as
+`out.png`, a `Uint8Array`).
 
 ## Error handling
 
