@@ -195,6 +195,42 @@ fn decorative_eyes_omit_tabs_and_nubs_and_use_bigger_radii() {
         .filter(|i| matches!(i.shape, Shape::Rect { w: 0.6, h: 0.6, .. }))
         .count();
     assert_eq!(nubs, 12);
+
+    // Decorative circle hole radius: 2.5 (classic thick ring) vs safe 2.9.
+    // Circle subpaths start at (cx + r, cy) with cx = cy = margin + 3.5 = 7.5,
+    // so the hole subpath (second inside the ring path) contributes a Move at
+    // x = 7.5 + r.
+    let circle_hole_has_move_at = |scene: &qrkit::scene::VectorScene, x: f32| {
+        scene.items.iter().any(|i| {
+            matches!(
+                i.shape,
+                Shape::Path(ref cmds) if cmds.iter().any(|c| matches!(
+                    c,
+                    qrkit::scene::PathCmd::Move(mvx, mvy)
+                        if (*mvx - x).abs() < 1e-4 && (*mvy - 7.5).abs() < 1e-4
+                ))
+            )
+        })
+    };
+    assert!(
+        circle_hole_has_move_at(&render_eye_scene(true, EyeShape::Circle), 10.0),
+        "decorative circle hole must use r=2.5 (thick ring)"
+    );
+    assert!(
+        circle_hole_has_move_at(&render_eye_scene(false, EyeShape::Circle), 10.4),
+        "safe circle hole must stay r=2.9"
+    );
+
+    // Decorative leaf: tl/br radius 3.0 — ring's first Move at x + r_tl
+    // (margin 4 → 7.0); safe mode stays at x+1.5.
+    assert!(
+        ring_starts_at(&render_eye_scene(true, EyeShape::Leaf), 7.0),
+        "decorative leaf ring must start at x+3.0"
+    );
+    assert!(
+        ring_starts_at(&render_eye_scene(false, EyeShape::Leaf), 5.5),
+        "safe leaf ring must stay at x+1.5"
+    );
 }
 
 fn render_eye_scene(decorative: bool, eye: qrkit::style::EyeShape) -> qrkit::scene::VectorScene {
