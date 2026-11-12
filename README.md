@@ -35,6 +35,7 @@ each subcommand validates and formats the standards-compliant payload
 - Module shapes: square, rounded, dots (adjustable radius), classy
 - Eye shapes: square, rounded, circle, leaf — with separate ring and dot colors
 - Solid colors, linear gradients (any angle), radial gradients; transparent background
+- `--decorative-eyes`: pure-shape eyes (bigger radii, no scanner-safety tabs/nubs) — cleaner look, but strict readers may fail to decode
 - Logo embedding (PNG/JPEG) with module clearing under the logo area
 
 ## Web app
