@@ -3,6 +3,10 @@
 //! Shared by `tests/e2e_decode.rs` (Task 9) and the CLI golden tests
 //! (Task 12): rasterize a [`VectorScene`] with tiny-skia, then decode the
 //! resulting QR code with rqrr to assert the payload round-trips.
+//
+// Each test binary compiles this module independently; some use only the
+// decoder (e.g. term_writer), so allow unused helpers here.
+#![allow(dead_code)]
 
 use qrkit::scene::{Fill, FillRule, PathCmd, Shape, VectorScene};
 use qrkit::writers::common::linear_endpoints;

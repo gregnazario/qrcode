@@ -20,12 +20,13 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
 
-    /// Output file; format inferred from extension (svg|pdf|eps).
+    /// Output file; format inferred from extension (svg|pdf|eps|term).
     /// Omit to write SVG to stdout.
     #[arg(short, long, global = true)]
     pub output: Option<PathBuf>,
 
-    /// Force output format (overrides extension).
+    /// Force output format: svg|pdf|eps|term (overrides extension; term =
+    /// ANSI truecolor half-blocks for the terminal).
     #[arg(long, global = true)]
     pub format: Option<String>,
 
@@ -396,8 +397,9 @@ pub fn output_format(cli: &Cli) -> Result<&'static str, Error> {
             "svg" => Ok("svg"),
             "pdf" => Ok("pdf"),
             "eps" => Ok("eps"),
+            "term" => Ok("term"),
             other => Err(Error::InvalidStyle(format!(
-                "unknown format '{other}', expected svg|pdf|eps"
+                "unknown format '{other}', expected svg|pdf|eps|term"
             ))),
         };
     }
@@ -406,8 +408,9 @@ pub fn output_format(cli: &Cli) -> Result<&'static str, Error> {
             Some("svg") => Ok("svg"),
             Some("pdf") => Ok("pdf"),
             Some("eps") => Ok("eps"),
+            Some("term") | Some("ansi") | Some("txt") => Ok("term"),
             _ => Err(Error::InvalidStyle(
-                "cannot infer format from extension; use --format svg|pdf|eps".into(),
+                "cannot infer format from extension; use --format svg|pdf|eps|term".into(),
             )),
         };
     }

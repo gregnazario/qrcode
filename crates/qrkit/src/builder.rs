@@ -4,13 +4,15 @@ use crate::content::Content;
 use crate::render::{render, Matrix};
 use crate::scene::VectorScene;
 use crate::style::StyleConfig;
-use crate::writers::{eps, pdf, svg};
+use crate::writers::{eps, pdf, svg, term};
 use crate::Error;
 
-/// A built QR code: the scene plus non-fatal warnings.
+/// A built QR code: the vector scene, the encoded matrix (for terminal
+/// rendering), plus non-fatal warnings.
 #[derive(Debug, Clone)]
 pub struct QrImage {
     pub scene: VectorScene,
+    pub matrix: Matrix,
     pub warnings: Vec<String>,
 }
 
@@ -44,6 +46,7 @@ impl QrBuilder {
         Ok(QrImage {
             scene: render(&matrix, &self.style),
             warnings,
+            matrix,
         })
     }
 
@@ -62,5 +65,12 @@ impl QrBuilder {
     /// Build and serialize to EPS (alpha pre-blended; see eps module docs).
     pub fn to_eps(&self) -> Result<Vec<u8>, Error> {
         Ok(eps::write(&self.build()?.scene))
+    }
+
+    /// Build and render as ANSI terminal text (truecolor half-blocks; see
+    /// the term writer docs for the module-shape limitation).
+    pub fn to_term(&self) -> Result<Vec<u8>, Error> {
+        let img = self.build()?;
+        Ok(term::render(&img.matrix, &self.style))
     }
 }
