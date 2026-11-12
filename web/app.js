@@ -390,11 +390,15 @@ async function main() {
     });
   }
 
-  document.querySelectorAll("#downloads button[data-fmt]").forEach((b) =>
-    b.addEventListener("click", () => download(b.dataset.fmt)));
-  $("copy-svg").addEventListener("click", (e) => copySvg(e.currentTarget));
-  $("copy-png").addEventListener("click", (e) => copyPng(e.currentTarget));
-  $("copy-link").addEventListener("click", (e) => copyLink(e.currentTarget));
+  // Downloads / clipboard act on their dropdown selections.
+  $("dl-btn").addEventListener("click", () => download($("dl-format").value));
+  $("copy-btn").addEventListener("click", (e) => {
+    switch ($("copy-format").value) {
+      case "svg": return copySvg(e.currentTarget);
+      case "png": return copyPng(e.currentTarget);
+      case "link": return copyLink(e.currentTarget);
+    }
+  });
 
   // Restore from a permalink (#...), if present. applyConfig only sets DOM
   // values (no input events), so update() must ALWAYS run afterwards — the

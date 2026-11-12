@@ -24,7 +24,10 @@ fieldset { margin-top: 1rem; border-radius: 8px; }
 #scan-badge.pending { opacity: 0.6; }
 #info-badge { opacity: 0.65; font-variant-numeric: tabular-nums; }
 
-#downloads { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+#downloads { margin-top: 1rem; display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end; }
+#downloads .dl-group { display: flex; flex-direction: column; font-size: 0.8rem; gap: 0.25rem; }
+#downloads .dl-group select { padding: 0.45rem; }
+#downloads .check { align-self: end; padding-bottom: 0.45rem; }
 button { padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
 button.preset { padding: 0.3rem 0.8rem; font-size: 0.85rem; text-transform: capitalize; }
 @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
