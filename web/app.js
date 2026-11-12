@@ -96,6 +96,8 @@ function collectStyle() {
     // "auto" leaves eyeColor unset so the eyes follow fg / the gradient.
     eyeColor: $("eye-auto").checked ? undefined : $("eye-color").value,
     decorativeEyes: $("eye-decorative").checked || undefined,
+    // PNG resolution (ignored by the vector formats).
+    px: parseInt($("px-per-module").value, 10) || 24,
     ecc: $("ecc").value,
     margin: parseInt($("margin").value, 10),
   };
@@ -134,7 +136,12 @@ function download(fmt) {
   const bytes = fmt === "svg"
     ? new TextEncoder().encode(out.svg)
     : new Uint8Array(out[fmt]);
-  const blob = new Blob([bytes], { type: { svg: "image/svg+xml", pdf: "application/pdf", eps: "application/postscript" }[fmt] });
+  const blob = new Blob([bytes], { type: {
+    svg: "image/svg+xml",
+    pdf: "application/pdf",
+    eps: "application/postscript",
+    png: "image/png",
+  }[fmt] });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `qr.${fmt}`;

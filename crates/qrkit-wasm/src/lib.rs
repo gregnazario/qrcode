@@ -81,6 +81,8 @@ struct WStyle {
     eye_color: Option<String>,
     eye_inner_color: Option<String>,
     decorative_eyes: Option<bool>,
+    /// PNG resolution: pixels per module, 1..=256 (default 24).
+    px: Option<u32>,
     logo: Option<WLogo>,
 }
 
@@ -97,6 +99,14 @@ pub fn render_to_bytes(
     format: &str,
 ) -> Result<(Option<Vec<u8>>, Vec<String>), String> {
     let cfg: WConfig = serde_json::from_str(config_json).map_err(|e| format!("config: {e}"))?;
+    // PNG resolution (pixels per module) is a writer param, not part of
+    // StyleConfig — read it before the style is consumed.
+    let px = cfg
+        .style
+        .as_ref()
+        .and_then(|s| s.px)
+        .unwrap_or(24)
+        .clamp(1, 256);
     let content = to_content(cfg.content)?;
     let style = cfg.style.map(to_style).transpose()?.unwrap_or_default();
     let builder = qrkit::builder::QrBuilder::new(content)
@@ -107,7 +117,12 @@ pub fn render_to_bytes(
         "svg" => qrkit::writers::svg::write(&img.scene),
         "pdf" => qrkit::writers::pdf::write(&img.scene),
         "eps" => qrkit::writers::eps::write(&img.scene),
-        other => return Err(format!("unknown format '{other}', expected svg|pdf|eps")),
+        "png" => qrkit::writers::png::write(&img.scene, px),
+        other => {
+            return Err(format!(
+                "unknown format '{other}', expected svg|pdf|eps|png"
+            ))
+        }
     };
     Ok((Some(bytes), img.warnings))
 }
@@ -118,6 +133,7 @@ pub struct Generated {
     svg: Option<Vec<u8>>,
     pdf: Option<Vec<u8>>,
     eps: Option<Vec<u8>>,
+    png: Option<Vec<u8>>,
     warnings: Vec<String>,
 }
 
@@ -138,6 +154,10 @@ impl Generated {
         self.eps.clone()
     }
     #[wasm_bindgen(getter)]
+    pub fn png(&self) -> Option<Vec<u8>> {
+        self.png.clone()
+    }
+    #[wasm_bindgen(getter)]
     pub fn warnings(&self) -> Vec<JsValue> {
         self.warnings.iter().map(|w| JsValue::from_str(w)).collect()
     }
@@ -150,12 +170,14 @@ pub fn generate(config_json: &str, format: &str) -> Result<Generated, JsError> {
         svg: None,
         pdf: None,
         eps: None,
+        png: None,
         warnings,
     };
     match format {
         "svg" => out.svg = bytes,
         "pdf" => out.pdf = bytes,
         "eps" => out.eps = bytes,
+        "png" => out.png = bytes,
         _ => return Err(JsError::new("unknown format")),
     }
     Ok(out)

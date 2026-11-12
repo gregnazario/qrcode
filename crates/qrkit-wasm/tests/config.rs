@@ -68,3 +68,25 @@ fn decorative_eyes_maps_and_warns() {
     let (_, warnings) = render_to_bytes(CFG, "svg").unwrap();
     assert!(!warnings.iter().any(|w| w.contains("decorative eyes")));
 }
+
+#[test]
+fn png_generation_from_json() {
+    let cfg = r##"{"content": {"type": "text", "text": "png wasm"},
+                  "style": {"fg": "#0d47a1", "px": 8}}"##;
+    let (bytes, warnings) = render_to_bytes(cfg, "png").expect("generates");
+    let bytes = bytes.expect("png bytes");
+    assert!(warnings.is_empty());
+    assert_eq!(&bytes[0..8], b"\x89PNG\r\n\x1a\n", "PNG magic");
+    // Dimensions honor px: v1 (21 modules) + margin 4 -> 29 * 8 = 232 px.
+    let dec = png::Decoder::new(std::io::Cursor::new(&bytes));
+    let mut reader = dec.read_info().unwrap();
+    let mut buf = vec![0u8; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut buf).unwrap();
+    assert_eq!((info.width, info.height), (232, 232));
+    // Default px = 24 when omitted.
+    let (bytes, _) = render_to_bytes(CFG, "png").unwrap();
+    let default_bytes = bytes.unwrap();
+    let dec = png::Decoder::new(std::io::Cursor::new(&default_bytes));
+    let reader = dec.read_info().unwrap();
+    assert_eq!(reader.info().width % 24, 0, "default px divides width");
+}

@@ -20,3 +20,4 @@ base64.workspace = true
 
 [dev-dependencies]
 base64.workspace = true
+png.workspace = true

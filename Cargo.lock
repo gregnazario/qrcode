@@ -845,6 +845,7 @@ name = "qrkit-wasm"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "png",
  "qrkit",
  "serde",
  "serde_json",
