@@ -1,0 +1,103 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - navigation [ref=e3]:
+      - heading "qrkit" [level=1] [ref=e4]
+      - link "docs" [ref=e5] [cursor=pointer]:
+        - /url: docs.html
+    - paragraph [ref=e6]: Customizable QR codes as true vector graphics
+  - main [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - text: Content type
+        - combobox "Content type" [ref=e10]
+      - strong [ref=e13]: Presets
+      - group "Style" [ref=e14]:
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - text: Foreground
+            - textbox "Foreground" [ref=e18]: "#000000"
+          - generic [ref=e19]:
+            - text: Background
+            - textbox "Background" [ref=e20]: "#ffffff"
+          - generic [ref=e21]:
+            - checkbox "transparent" [ref=e22]
+            - text: transparent
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - text: Gradient
+            - combobox "Gradient" [ref=e25]:
+              - option "none" [selected]
+              - option "linear"
+              - option "radial"
+          - generic [ref=e26]:
+            - text: To
+            - textbox "To" [ref=e27]: "#42a5f5"
+          - generic [ref=e28]:
+            - text: Angle
+            - spinbutton "Angle" [ref=e29]: "45"
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - text: Shape
+            - combobox "Shape" [ref=e32]:
+              - option "square" [selected]
+              - option "rounded"
+              - option "dots"
+              - option "classy"
+          - generic [ref=e33]:
+            - text: Dot radius
+            - slider "Dot radius" [ref=e34]: "0.5"
+          - generic [ref=e35]:
+            - text: Eye
+            - combobox "Eye" [ref=e36]:
+              - option "square" [selected]
+              - option "rounded"
+              - option "circle"
+              - option "leaf"
+          - generic "Pure-shape eyes without scanner-safety tabs; may not scan on strict readers" [ref=e37]:
+            - checkbox "decorative" [ref=e38]
+            - text: decorative
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - text: Eye color
+            - textbox "Eye color" [disabled] [ref=e41]: "#000000"
+          - generic [ref=e42]:
+            - checkbox "auto" [checked] [ref=e43]
+            - text: auto
+          - generic [ref=e44]:
+            - text: ECC
+            - combobox "ECC" [ref=e45]:
+              - option "quartile" [selected]
+              - option "low"
+              - option "medium"
+              - option "high"
+          - generic [ref=e46]:
+            - text: Margin
+            - spinbutton "Margin" [ref=e47]: "4"
+        - generic [ref=e48]:
+          - generic [ref=e49]:
+            - text: Logo
+            - button "Logo" [ref=e50]
+          - generic [ref=e51]:
+            - text: Logo size
+            - slider "Logo size" [ref=e52]: "0.25"
+    - generic [ref=e53]:
+      - 'generic "Live check: the rendered code is decoded with a real QR reader — the same standard as the project''s test suite" [ref=e55]'
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - text: Download
+          - combobox "Download" [ref=e59]:
+            - option "SVG" [selected]
+            - option "PDF"
+            - option "EPS"
+            - option "PNG"
+        - button "Save file" [ref=e60] [cursor=pointer]
+        - generic [ref=e61]:
+          - text: Copy
+          - combobox "Copy" [ref=e62]:
+            - option "SVG" [selected]
+            - option "PNG image"
+            - option "Share link"
+        - button "Copy" [ref=e63] [cursor=pointer]
+        - 'generic "PNG resolution: pixels per QR module (24 is crisp for screens)" [ref=e64]':
+          - text: px/module
+          - spinbutton "px/module" [ref=e65]: "24"
