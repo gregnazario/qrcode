@@ -31,6 +31,11 @@ const TYPE_FIELDS = {
 const $ = (id) => document.getElementById(id);
 let logoBase64 = null;
 
+// The clear button only makes sense while a logo is actually loaded.
+function syncLogoClear() {
+  $("logo-clear").hidden = !logoBase64;
+}
+
 function renderTypeSelect() {
   $("type").innerHTML = Object.keys(TYPE_FIELDS)
     .map((t) => `<option value="${t}">${t}</option>`).join("");
@@ -160,13 +165,21 @@ async function main() {
   });
   $("logo").addEventListener("change", async (e) => {
     const file = e.target.files[0];
-    if (!file) { logoBase64 = null; update(); return; }
+    if (!file) { logoBase64 = null; syncLogoClear(); update(); return; }
     const dataUrl = await new Promise((res) => {
       const r = new FileReader();
       r.onload = () => res(r.result);
       r.readAsDataURL(file);
     });
     logoBase64 = dataUrl.split(",")[1];
+    syncLogoClear();
+    update();
+  });
+  // Remove an uploaded logo: drop the data, reset the file input, re-render.
+  $("logo-clear").addEventListener("click", () => {
+    logoBase64 = null;
+    $("logo").value = "";
+    syncLogoClear();
     update();
   });
   document.querySelectorAll("#downloads button").forEach((b) =>
