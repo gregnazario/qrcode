@@ -1,6 +1,6 @@
 //! Timing harness for the writers (run: cargo run -p qrkit --release --example bench).
 //!
-//! Measures scene building plus each writer on three representative scenes:
+//! Times each writer on three representative scenes (scenes are built once, outside the timed loops):
 //! small plain, large dense (v10 payload), and gradient+logo.
 
 use qrkit::builder::QrBuilder;

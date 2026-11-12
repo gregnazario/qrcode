@@ -152,3 +152,83 @@ fn pdf_isolates_extended_graphics_state_runs() {
         "expected run-batched color sets, got {rg_count}"
     );
 }
+
+#[test]
+fn pdf_isolates_gradient_pattern_runs() {
+    // Gradient fills paint through `/Pattern cs … scn`, which — like the
+    // alpha ExtGState — is state that must never leak into later runs. This
+    // is the only place a gradient scene flows through the PDF writer's
+    // content stream, so the `scn` half of the isolation invariant is
+    // exercised here, not in the alpha test above.
+    let img = QrBuilder::new(Content::Text("gradient pdf".into()))
+        .unwrap()
+        .style(StyleConfig::new().fill(qrkit::scene::Fill::LinearGradient {
+            from: qrkit::scene::Rgba::BLACK,
+            to: qrkit::scene::Rgba {
+                r: 66,
+                g: 165,
+                b: 245,
+                a: 255,
+            },
+            angle_deg: 45.0,
+        }))
+        .build()
+        .unwrap();
+    let bytes = pdf::write(&img.scene);
+    let raw = String::from_utf8_lossy(&bytes);
+    assert!(raw.contains("/PatternType 2"), "gradient pattern embedded");
+
+    let doc = lopdf::Document::load_from(std::io::Cursor::new(&bytes)).expect("valid pdf");
+    let pages = doc.get_pages();
+    let page = doc.get_object(pages[&1]).unwrap().as_dict().unwrap();
+    let content_id = page.get(b"Contents").unwrap().as_reference().unwrap();
+    let stream = doc.get_object(content_id).unwrap().as_stream().unwrap();
+    let content = String::from_utf8(stream.content.clone()).expect("uncompressed stream");
+    let tokens: Vec<&str> = content.split_whitespace().collect();
+
+    let q_count = tokens.iter().filter(|t| **t == "q").count();
+    let big_q = tokens.iter().filter(|t| **t == "Q").count();
+    assert_eq!(q_count, big_q, "unbalanced q/Q in:\n{content}");
+
+    let scn_count = tokens.iter().filter(|t| **t == "scn").count();
+    assert!(scn_count >= 1, "gradient scene must set a pattern fill");
+    let mut depth: i64 = 0;
+    let mut scn_outside = 0usize;
+    for tok in &tokens {
+        match *tok {
+            "q" => depth += 1,
+            "Q" => depth -= 1,
+            "scn" if depth < 1 => scn_outside += 1,
+            _ => {}
+        }
+    }
+    assert_eq!(
+        scn_outside, 0,
+        "pattern scn outside any q…Q block in:\n{content}"
+    );
+
+    // One pattern set per gradient RUN, not per item. The default style has
+    // gradient module fill with solid black eye rings (and gradient eye
+    // dots), so the expected run count comes from the scene itself.
+    let expected_runs = {
+        let mut runs = 0usize;
+        let mut prev: Option<&qrkit::scene::Fill> = None;
+        for item in &img.scene.items {
+            let is_grad = !matches!(item.fill, qrkit::scene::Fill::Solid(_));
+            let prev_grad = prev.is_some_and(|f| !matches!(f, qrkit::scene::Fill::Solid(_)));
+            if is_grad && !prev_grad {
+                runs += 1;
+            }
+            prev = Some(&item.fill);
+        }
+        runs
+    };
+    assert!(
+        expected_runs >= 1,
+        "test scene should contain gradient items"
+    );
+    assert_eq!(
+        scn_count, expected_runs,
+        "expected one scn per gradient run ({expected_runs}), got {scn_count}"
+    );
+}
