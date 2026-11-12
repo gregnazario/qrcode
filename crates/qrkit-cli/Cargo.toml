@@ -1,9 +1,15 @@
 [package]
 name = "qrkit-cli"
-description = "Command-line QR code generator with vector output"
+description = "Command-line QR code generator: vector, PNG, and terminal image output"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+readme = "README.md"
+keywords = ["qr", "qrcode", "barcode", "cli", "generator"]
+categories = ["command-line-utilities", "encoding"]
 
 [lib]
 name = "qrkit_cli"
@@ -13,5 +19,6 @@ name = "qrkit"
 path = "src/main.rs"
 
 [dependencies]
-qrkit = { path = "../qrkit" }
+# version required for `cargo publish` to rewrite the path dependency
+qrkit = { path = "../qrkit", version = "0.1.0" }
 clap.workspace = true

@@ -1,9 +1,12 @@
 [package]
 name = "qrkit-wasm"
-description = "WebAssembly binding for qrkit"
+description = "WebAssembly binding for qrkit (consumed via wasm-pack, not crates.io)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+# Consumed through wasm-pack / the web app's pkg output, not cargo from
+# crates.io — keep it out of the registry.
+publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]

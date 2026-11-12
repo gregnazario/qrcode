@@ -1,9 +1,15 @@
 [package]
 name = "qrkit"
-description = "Customizable QR code generator with vector (SVG/PDF/EPS) output"
+description = "Customizable QR code generator with vector (SVG/PDF/EPS), PNG, and terminal output"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+readme = "README.md"
+keywords = ["qr", "qrcode", "barcode", "vector", "svg"]
+categories = ["encoding", "graphics", "multimedia::images"]
 
 [dependencies]
 qrcodegen.workspace = true
