@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/qrkit"]
+members = ["crates/qrkit", "crates/qrkit-cli"]
 
 [workspace.package]
 version = "0.1.0"
