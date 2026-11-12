@@ -6,6 +6,9 @@ members = ["crates/qrkit", "crates/qrkit-cli", "crates/qrkit-wasm"]
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
+repository = "https://github.com/gregnazario/qrcode"
+homepage = "https://gregnazario.github.io/qrcode/"
+rust-version = "1.75"
 
 [workspace.dependencies]
 qrcodegen = "1.8"
