@@ -91,7 +91,7 @@ runs client-side.
 ## Development
 
 ```console
-$ just check          # fmt + clippy -D warnings + full test suite (88 tests)
+$ just check          # fmt + clippy -D warnings + full test suite (90 tests)
 $ just build-wasm     # wasm-pack build for the web app
 $ just serve          # local static server for web/
 ```
@@ -99,3 +99,19 @@ $ just serve          # local static server for web/
 The test suite's centerpiece is the decode gate: every style combination is
 rasterized and decoded back with rqrr, asserting exact payload round-trips
 (see [scanner safety](docs/scanner-safety.md)).
+
+### Releasing
+
+Publishing is tag-driven. Bump `version` in the root `Cargo.toml` (the
+whole workspace shares it), commit, then:
+
+```console
+$ git tag v0.1.0
+$ git push origin main v0.1.0
+```
+
+The [publish workflow](.github/workflows/publish.yml) refuses tags that
+don't match the crate version, runs the full gate suite, publishes `qrkit`
+then `qrkit-cli` to crates.io, and opens a GitHub Release. One-time setup:
+add a `CARGO_REGISTRY_TOKEN` secret to the repo (crates.io → Account
+Settings → API Tokens, scopes *publish-new* + *publish-update*).
