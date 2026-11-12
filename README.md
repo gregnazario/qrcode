@@ -11,7 +11,7 @@ $ cargo install --path crates/qrkit-cli
 
 $ qrkit url "https://example.com/promo" \
     --shape dots --fg "#0d47a1" --gradient linear --gradient-to "#42a5f5" --gradient-angle 45 \
-    --eye circle --logo assets/logo.png --logo-size 0.25 \
+    --eye circle --logo /path/to/logo.png --logo-size 0.25 \
     -o poster.svg
 
 $ qrkit wifi --ssid "Cafe Guest" --password "latte-2026" --encryption wpa -o menu.pdf

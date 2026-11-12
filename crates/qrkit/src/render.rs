@@ -254,10 +254,11 @@ fn push_eye(items: &mut Vec<SceneItem>, ex: i32, ey: i32, style: &StyleConfig) {
                 cy: y + 3.5,
                 r: 3.5,
             },
-            // Hole radius window: >= sqrt(2) * 2 + 0.5 ~= 2.83 so the four
-            // light modules diagonal from each corner (whose centers lie
-            // 2.83 from the eye center) stay unpainted, and < 3.0 so the
-            // mid-edge dark border modules (centers at 3.0) stay painted.
+            // Hole radius window: >= 2*sqrt(2) ~= 2.83 so the four light
+            // modules diagonal from each corner (whose centers lie at
+            // distance 2*sqrt(2) from the eye center, e.g. (3.5,3.5) to
+            // (1.5,1.5)) stay unpainted, and < 3.0 so the mid-edge dark
+            // border modules (centers at 3.0) stay painted.
             Shape::Circle {
                 cx: x + 3.5,
                 cy: y + 3.5,
