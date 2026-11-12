@@ -107,6 +107,8 @@ function collectStyle() {
     // "auto" leaves eyeColor unset so the eyes follow fg / the gradient.
     eyeColor: $("eye-auto").checked ? undefined : $("eye-color").value,
     decorativeEyes: $("eye-decorative").checked || undefined,
+    ecc: $("ecc").value,
+    margin: parseInt($("margin").value, 10),
     // PNG resolution (ignored by the vector formats).
     px: parseInt($("px-per-module").value, 10) || 24,
   };
@@ -129,6 +131,7 @@ function update() {
     showError(e);
     $("scan-badge").className = "";
     $("scan-badge").textContent = "";
+    $("info-badge").textContent = "";
     scheduleVerify(null);
     return;
   }
@@ -163,7 +166,13 @@ function syncPermalink(config) {
   const shareable = { ...config, style: { ...config.style } };
   delete shareable.style.logo;
   const encoded = encodeURIComponent(JSON.stringify(shareable));
-  history.replaceState(null, "", `#${encoded}`);
+  // Some engines (WebKit) rate-limit replaceState and throw; a failed hash
+  // sync must never break rendering.
+  try {
+    history.replaceState(null, "", `#${encoded}`);
+  } catch {
+    /* hash stays stale until the next accepted call */
+  }
 }
 
 function applyConfig(cfg) {
@@ -193,6 +202,7 @@ function applyConfig(cfg) {
   $("eye-decorative").checked = !!s.decorativeEyes;
   if (s.margin !== undefined) $("margin").value = s.margin;
   if (s.ecc) $("ecc").value = s.ecc;
+  if (s.px !== undefined) $("px-per-module").value = s.px;
   return true;
 }
 
@@ -256,7 +266,8 @@ async function copySvg(btn) {
     await navigator.clipboard.writeText(new TextDecoder().decode(bytes));
     flash(btn, "Copied ✓");
   } catch {
-    flash(btn, "Copy blocked");
+    flash(btn, "Copy blocked — downloading");
+    download("svg");
   }
 }
 
@@ -310,6 +321,7 @@ function loadLogoFile(file) {
   r.onerror = () => showError("could not read logo file");
   r.onload = () => {
     logoBase64 = r.result.split(",")[1];
+    syncLogoClear(); // only meaningful once the data has actually landed
     update();
   };
   r.readAsDataURL(file);
@@ -359,7 +371,10 @@ async function main() {
   window.addEventListener("drop", (e) => {
     e.preventDefault();
     const file = [...(e.dataTransfer?.files || [])].find((f) => f.type.startsWith("image/"));
-    if (file) loadLogoFile(file);
+    if (file) {
+      loadLogoFile(file);
+      syncLogoClear();
+    }
   });
 
   // Presets.
@@ -381,16 +396,17 @@ async function main() {
   $("copy-png").addEventListener("click", (e) => copyPng(e.currentTarget));
   $("copy-link").addEventListener("click", (e) => copyLink(e.currentTarget));
 
-  // Restore from a permalink (#...), if present.
-  let restored = false;
+  // Restore from a permalink (#...), if present. applyConfig only sets DOM
+  // values (no input events), so update() must ALWAYS run afterwards — the
+  // DOM state is the config.
   if (location.hash.length > 1) {
     try {
-      restored = applyConfig(JSON.parse(decodeURIComponent(location.hash.slice(1))));
+      applyConfig(JSON.parse(decodeURIComponent(location.hash.slice(1))));
     } catch {
-      restored = false; // malformed hash — fall through to defaults
+      // malformed hash — fall through to defaults
     }
   }
-  if (!restored) update();
+  update();
 }
 
 main();

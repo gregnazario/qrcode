@@ -154,6 +154,8 @@ pub fn info_for(config_json: &str) -> Result<String, String> {
 /// Live scannability check: rasterize the scene (8 px/module) and decode
 /// with rqrr — the same decoder family that gates the test suite. True only
 /// when the rendered code decodes back to the EXACT input payload.
+/// Translucent/transparent backgrounds are composited over white first (the
+/// badge checks decodability on paper, not on the user's page backdrop).
 #[wasm_bindgen]
 pub fn verify_scans(config_json: &str) -> Result<bool, JsError> {
     let (img, _, _, payload) = build(config_json).map_err(|e| JsError::new(&e))?;
@@ -163,15 +165,19 @@ pub fn verify_scans(config_json: &str) -> Result<bool, JsError> {
         .pixels()
         .iter()
         .map(|p| {
-            let c = p.demultiply();
-            (0.299 * c.red() as f32 + 0.587 * c.green() as f32 + 0.114 * c.blue() as f32) as u8
+            let c = p.demultiply(); // straight u8 rgba
+            let a = c.alpha() as f32 / 255.0;
+            // composite over white, then Rec.601 luminance (0..255)
+            let over = |v: u8| (v as f32 / 255.0) * a + (1.0 - a);
+            let (r, g, b) = (over(c.red()), over(c.green()), over(c.blue()));
+            ((0.299 * r + 0.587 * g + 0.114 * b) * 255.0) as u8
         })
         .collect();
     let mut prepared = rqrr::PreparedImage::prepare_from_greyscale(w, w, |x, y| gray[y * w + x]);
     Ok(prepared
         .detect_grids()
-        .pop()
-        .is_some_and(|grid| matches!(grid.decode(), Ok((_, ref content)) if *content == payload)))
+        .into_iter()
+        .any(|grid| matches!(grid.decode(), Ok((_, ref content)) if *content == payload)))
 }
 
 /// Wasm-bindgen result holder.
