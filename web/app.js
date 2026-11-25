@@ -118,8 +118,24 @@ function collectStyle() {
   return style;
 }
 
+// ---- messages -------------------------------------------------------------
+// Library messages can echo user-supplied strings (e.g. "invalid email
+// address: <what was typed>"), and permalinks make those strings
+// attacker-controlled. They must only ever reach the page as text — never
+// through innerHTML.
+function showMessages(messages, cls) {
+  $("warnings").replaceChildren(
+    ...messages.map((text) => {
+      const p = document.createElement("p");
+      p.className = cls;
+      p.textContent = text;
+      return p;
+    }),
+  );
+}
+
 function showError(e) {
-  $("warnings").innerHTML = `<p class="error">${e}</p>`;
+  showMessages([e instanceof Error ? e.message : String(e)], "error");
 }
 
 function update() {
@@ -137,7 +153,7 @@ function update() {
   }
   $("qr").innerHTML = out.svg || "";
   $("info-badge").textContent = out.info || "";
-  $("warnings").innerHTML = (out.warnings || []).map((w) => `<p class="warn">${w}</p>`).join("");
+  showMessages((out.warnings || []).map(String), "warn");
   syncPermalink(config);
   scheduleVerify(config);
 }
