@@ -3,17 +3,20 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<!-- Locks the page down to its own scripts and styles. The generator runs
+     WebAssembly, hence 'wasm-unsafe-eval'; logos embed as data: images. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"/>
 <title>qrkit — vector QR generator</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%23ffffff'/%3E%3Cpath d='M1 1h2v2H1zM5 1h2v2H5zM1 5h2v2H1zM5 5h1v1H5z' fill='%230d47a1'/%3E%3C/svg%3E"/>
 <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
 <header>
-  <nav style="display:flex;gap:1.2rem;align-items:baseline">
-    <h1 style="margin:0">qrkit</h1>
-    <a href="docs.html" style="color:inherit">docs</a>
+  <nav>
+    <h1>qrkit</h1>
+    <a href="docs.html">docs</a>
   </nav>
-  <p style="margin:0.2rem 0 0">Customizable QR codes as true vector graphics</p>
+  <p>Customizable QR codes as true vector graphics</p>
 </header>
 <main>
   <section id="panel">
@@ -22,10 +25,8 @@
     </label>
     <div id="content-form"></div>
     <div>
-      <div class="row" style="align-items:center;margin-bottom:0.4rem">
-        <strong>Presets</strong>
-      </div>
-      <div id="presets" class="row" style="flex-wrap:wrap"></div>
+      <div class="presets-heading"><strong>Presets</strong></div>
+      <div id="presets" class="row"></div>
     </div>
     <fieldset>
       <legend>Style</legend>
@@ -67,11 +68,11 @@
         <label>Logo size <input type="range" id="logo-size" min="0.1" max="0.33" step="0.01" value="0.25"/></label>
       </div>
     </fieldset>
-    <div id="warnings"></div>
+    <div id="warnings" aria-live="polite"></div>
   </section>
   <section id="preview">
     <div id="badges">
-      <span id="scan-badge" title="Live check: the rendered code is decoded with a real QR reader — the same standard as the project's test suite"></span>
+      <span id="scan-badge" role="status" aria-live="polite" title="Live check: the rendered code is decoded with a real QR reader — the same standard as the project's test suite"></span>
       <span id="info-badge"></span>
     </div>
     <div id="qr"></div>
@@ -94,7 +95,7 @@
       </label>
       <button type="button" id="copy-btn">Copy</button>
       <label class="check" title="PNG resolution: pixels per QR module (24 is crisp for screens)">
-        px/module <input type="number" id="px-per-module" value="24" min="1" max="256" style="width:4.5rem"/>
+        px/module <input type="number" id="px-per-module" value="24" min="1" max="256"/>
       </label>
     </div>
   </section>
